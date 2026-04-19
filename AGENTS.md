@@ -218,19 +218,16 @@ Agents must:
 * prioritize correctness over completeness
 * prefer simple implementations over abstraction
 * avoid inventing new architecture
+* Respect the project rule in README.md: no code without an explicit issue to tie it to.
 
-Before coding, align with:
 
-* `DOCS/domain-model.md`
-* `DOCS/system-blueprint.md`
-
-If uncertain, choose the simpler implementation consistent with existing rules.
-
-External knowledge base (if available):
+Before coding, align with the external knowledge base at C:\Users\bosto\dockerstuff\knowledge-base\trading-system\ when available, especially its AGENTS.md and canonical entity notes.
+External knowledge base :
 
 ```
 C:\Users\bosto\dockerstuff\knowledge-base\trading-system\
 ```
+If uncertain, choose the simpler implementation consistent with existing rules.
 
 ---
 
