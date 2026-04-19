@@ -3,6 +3,8 @@
 from typing import Protocol
 from uuid import UUID
 
+from trading_system.domain.rules.rule_evaluation import RuleEvaluation
+from trading_system.domain.rules.violation import Violation
 from trading_system.domain.trading.idea import TradeIdea
 from trading_system.domain.trading.plan import TradePlan
 from trading_system.domain.trading.position import Position
@@ -29,6 +31,10 @@ class TradeThesisRepository(Protocol):
         """Persist a trade thesis."""
         ...
 
+    def get(self, thesis_id: UUID) -> TradeThesis | None:
+        """Return a trade thesis by identity."""
+        ...
+
 
 class TradePlanRepository(Protocol):
     """Persistence boundary for trade plans."""
@@ -39,6 +45,10 @@ class TradePlanRepository(Protocol):
 
     def get(self, plan_id: UUID) -> TradePlan | None:
         """Return a trade plan by identity."""
+        ...
+
+    def update(self, plan: TradePlan) -> None:
+        """Persist changes to a trade plan."""
         ...
 
 
@@ -55,4 +65,20 @@ class TradeReviewRepository(Protocol):
 
     def add(self, review: TradeReview) -> None:
         """Persist a trade review."""
+        ...
+
+
+class RuleEvaluationRepository(Protocol):
+    """Persistence boundary for deterministic rule evaluation artifacts."""
+
+    def add(self, evaluation: RuleEvaluation) -> None:
+        """Persist a rule evaluation."""
+        ...
+
+
+class ViolationRepository(Protocol):
+    """Persistence boundary for rule violations."""
+
+    def add(self, violation: Violation) -> None:
+        """Persist a rule violation."""
         ...
