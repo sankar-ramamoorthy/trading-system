@@ -95,6 +95,13 @@ def demo_planned_trade() -> None:
         price=Decimal("25.50"),
         notes="Demo manual entry fill.",
     )
+    fill_service.record_manual_fill(
+        position_id=position.id,
+        side="sell",
+        quantity=Decimal("100"),
+        price=Decimal("27.00"),
+        notes="Demo manual exit fill.",
+    )
 
     typer.echo(
         "Created planned trade workflow: "
@@ -103,7 +110,8 @@ def demo_planned_trade() -> None:
         f"evaluations={len(rule_results)} violations={len(violations.items)} "
         f"position={position.id} fills={len(fills.items)} "
         f"open_quantity={position.current_quantity} "
-        f"average_entry={position.average_entry_price} "
+        f"state={position.lifecycle_state} "
+        f"closed_at={position.closed_at} "
         f"lifecycle_events={len(lifecycle_events.items)}"
     )
 

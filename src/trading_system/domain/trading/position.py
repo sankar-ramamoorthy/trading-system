@@ -22,6 +22,8 @@ class Position:
     total_sold_quantity: Decimal = Decimal("0")
     current_quantity: Decimal = Decimal("0")
     average_entry_price: Decimal | None = None
+    closing_fill_id: UUID | None = None
+    close_reason: str | None = None
     id: UUID = field(default_factory=uuid4)
 
     def record_fill(self, fill: Fill) -> None:
@@ -63,3 +65,7 @@ class Position:
         self.current_quantity -= fill.quantity
         if self.current_quantity == 0:
             self.average_entry_price = None
+            self.lifecycle_state = "closed"
+            self.closed_at = fill.filled_at
+            self.closing_fill_id = fill.id
+            self.close_reason = "fills_completed"

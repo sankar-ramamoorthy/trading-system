@@ -55,7 +55,7 @@ See:
 Milestone 1 is implementing the first thin vertical slice:
 
 ```text
-TradeIdea -> TradeThesis -> TradePlan -> plan approval -> RuleEvaluation -> Position -> LifecycleEvent
+TradeIdea -> TradeThesis -> TradePlan -> plan approval -> RuleEvaluation -> Position -> Fill -> Position close -> LifecycleEvent
 ```
 
 Implemented local workflows currently support:
@@ -66,9 +66,25 @@ Implemented local workflows currently support:
 - approving a `TradePlan`
 - evaluating deterministic rules for an approved plan
 - opening a `Position` from an approved plan
+- recording one or more manual `Fill` records for an open position
+- updating position execution state from fills
+- automatically closing a position when reducing fills bring open quantity to zero
 - recording a `POSITION_OPENED` lifecycle event
+- recording a `FILL_RECORDED` lifecycle event
+- recording a `POSITION_CLOSED` lifecycle event when fills close a position
 
 The position workflow preserves the canonical rule that a `Position` originates from a `TradePlan`, not directly from a `TradeIdea`. Position `instrument_id` and `purpose` are derived from the linked idea through the approved plan.
+
+Manual fill recording currently supports the minimum execution state needed for the first vertical slice:
+
+- total bought quantity
+- total sold quantity
+- current open quantity
+- weighted average entry price for current open exposure
+
+Fill recording is manual only. The domain rejects invalid sides, non-positive quantity or price, fills on closed positions, and oversell/reversal attempts.
+
+Position closing is not a separate command. It is a domain state transition caused by execution reality: when a reducing fill brings `current_quantity` to exactly zero, the position moves to `closed`, `closed_at` is set, and the closing fill is recorded.
 
 ## Out of Scope Right Now
 
@@ -79,7 +95,10 @@ The current implementation intentionally does not include:
 - AI or ML features
 - reconciliation workflows
 - FastAPI
-- fills beyond the scaffolded manual fill entity
+- broker orders or execution adapters
+- commissions, fees, slippage, or P&L engines
+- fill correction or amendment workflows
+- manual force-close or reopen workflows
 - trade review workflow implementation
 
 ## Documentation & Knowledge
@@ -128,7 +147,8 @@ Run the local planned-trade demo:
 uv run trading-system demo-planned-trade
 ```
 
-The demo uses in-memory repositories and exercises the local workflow through plan approval, rule evaluation, position opening, and lifecycle event recording.
+The demo uses in-memory repositories and exercises the local workflow through plan approval, rule evaluation, position opening, fill recording, automatic close from fills, and lifecycle event recording.
+It records demo entry and exit fills, then reports fill count, current open quantity, position state, close timestamp, and lifecycle event count.
 
 ## Status
 
@@ -139,6 +159,8 @@ Completed Milestone 1 work so far:
 - initial Python project scaffold
 - planned trade workflow skeleton
 - open-position workflow from approved trade plan
+- manual fill recording for open positions
+- automatic position close when fills reduce open quantity to zero
 
 Current focus:
 
