@@ -1,6 +1,11 @@
+---
+
+````md
 # trading-system
 
 A professional-grade personal trading system for structured discretionary trading.
+
+---
 
 ## Purpose
 
@@ -8,168 +13,312 @@ This project is designed to help a single trader:
 
 - manage trades with full context
 - enforce discipline and process
-- monitor thesis and market-context changes
-- separate hard rules from interpretive signals
-- evolve toward deeper automation without losing control
+- separate intent from execution
+- capture execution reality
+- review and improve decision-making over time
 
-This is **not** a black-box trading bot and not a generic indicator engine.
+This is **not**:
+
+- a trading bot  
+- a black-box system  
+- an automated execution engine  
+
+It is a **structured, auditable trading workflow system**.
+
+---
 
 ## Core Principles
 
-- **Structured trade representation**: every trade should have intent, thesis, timeframe, and lifecycle state
-- **Deterministic discipline**: hard rules are explicit, enforceable, and auditable
-- **Context-aware intelligence**: market, filing, peer, and macro changes should inform decisions without replacing judgment
-- **Canonical domain model**: the system owns trade meaning; external systems provide facts
-- **Incremental evolution**: start simple, keep architecture clean, and expand only when justified
+- **Structured trade representation**  
+  Every trade has intent, thesis, and a plan before execution.
+
+- **Deterministic discipline**  
+  Hard rules are explicit, enforceable, and auditable.
+
+- **Separation of concerns**  
+  - intent (TradePlan)  
+  - execution (Fill)  
+  - outcome (Position)  
+  - reflection (TradeReview)
+
+- **Canonical domain model**  
+  The system owns trade meaning. External systems will only provide facts.
+
+- **Incremental evolution**  
+  Start simple. Expand only when justified.
+
+---
 
 ## Architecture
 
-The system follows a **modular monolith** architecture with clear internal boundaries.
-
-Implementation uses a Python `src/` layout:
+The system follows a **modular monolith** architecture:
 
 ```text
 src/trading_system/
-```
+````
 
-Primary modules:
+Modules:
 
-- `app/` - CLI entrypoints
-- `domain/` - core business entities and domain logic
-- `services/` - use-case orchestration
-- `rules_engine/` - deterministic rule evaluation
-- `ports/` - repository and unit-of-work interfaces
-- `infrastructure/` - persistence and adapter implementations
+* `app/` — CLI entrypoints
+* `domain/` — business logic and entities
+* `services/` — use-case orchestration
+* `rules_engine/` — deterministic rule evaluation
+* `ports/` — interfaces (repositories, UoW)
+* `infrastructure/` — persistence and adapters
 
 See:
 
-- `DOCS/ADR/001-system-architecture.md`
-- `DOCS/ADR/002-rules-vs-context.md`
-- `DOCS/ADR/003-development-and-deployment-strategy.md`
-- `DOCS/ADR/004-canonical-domain-and-source-of-truth.md`
-- `DOCS/domain-model.md`
-- `DOCS/systems-blueprint.md`
+* `DOCS/ADR/001-system-architecture.md`
+* `DOCS/ADR/002-rules-vs-context.md`
+* `DOCS/ADR/003-development-and-deployment-strategy.md`
+* `DOCS/ADR/004-canonical-domain-and-source-of-truth.md`
+* `DOCS/ADR/005-mvp-definition-and-boundaries.md`
+* `DOCS/domain-model.md`
+* `DOCS/milestone-1-summary.md`
+* `DOCS/milestone-2-roadmap.md`
 
-## Current Workflow
+---
 
-Milestone 1 is implementing the first thin vertical slice:
+## Core Workflow
 
 ```text
-TradeIdea -> TradeThesis -> TradePlan -> plan approval -> RuleEvaluation -> Position -> Fill -> Position close -> TradeReview
-TradeIdea -> TradeThesis -> TradePlan -> plan approval -> RuleEvaluation -> Position -> Fill -> Position close -> LifecycleEvent
+TradeIdea → TradeThesis → TradePlan → plan approval → RuleEvaluation → Position → Fill → Position close → TradeReview
 ```
 
-`LifecycleEvent` records auditable state transitions throughout the trade lifecycle.
+`LifecycleEvent` records auditable state transitions throughout the lifecycle.
 
-Implemented local workflows currently support:
+---
 
-- creating a `TradeIdea`
-- creating a `TradeThesis` linked to the idea
-- creating a `TradePlan` linked to the idea and thesis
-- approving a `TradePlan`
-- evaluating deterministic rules for an approved plan
-- opening a `Position` from an approved plan
-- recording manual `Fill` records for an open position
-- updating position execution state from fills
-- automatically closing a position when reducing fills bring open quantity to zero
-- recording a `POSITION_OPENED` lifecycle event
-- recording `FILL_RECORDED`, `POSITION_CLOSED`, and `TRADE_REVIEW_CREATED` lifecycle events
-- creating one manual `TradeReview` for a closed position
+## How to Use This System (Milestone 1)
 
-The position workflow preserves the canonical rule that a `Position` originates from a `TradePlan`, not directly from a `TradeIdea`. Position `instrument_id` and `purpose` are derived from the linked idea through the approved plan.
+Milestone 1 provides a **CLI-driven, manual trading workflow**.
 
-Manual fill recording currently supports the minimum execution state needed for the first vertical slice:
+### Typical Flow
 
-- total bought quantity
-- total sold quantity
-- current open quantity
-- weighted average entry price for current open exposure
+1. Define the trade:
 
-Fill recording is manual only. The domain rejects invalid sides, non-positive quantity or price, fills on closed positions, and oversell/reversal attempts.
+   * Create `TradeIdea`
+   * Create `TradeThesis`
+   * Create `TradePlan`
 
-Position closing is not a separate command. It is a domain state transition caused by execution reality: when a reducing fill brings `current_quantity` to exactly zero, the position moves to `closed`, `closed_at` is set, and the closing fill is recorded.
+2. Validate discipline:
 
-Trade review is manual and intentionally simple. A review can be created only for a closed position, and Milestone 1 allows one immutable review per position.
+   * Approve the plan
+   * Run rule evaluation
 
-## Out of Scope Right Now
+3. Execute manually:
 
-The current implementation intentionally does not include:
+   * Open a `Position`
+   * Record `Fill` entries as trades execute
 
-- broker integration
-- market data ingestion
-- AI or ML features
-- reconciliation workflows
-- FastAPI
-- broker orders or execution adapters
-- commissions, fees, slippage, or P&L engines
-- fill correction or amendment workflows
-- manual force-close or reopen workflows
-- automated reviews, analytics, dashboards, or review editing workflows
+4. Let the system track state:
 
-## Documentation & Knowledge
+   * Position updates automatically from fills
+   * Position closes automatically when quantity reaches zero
 
-This project uses a split-memory system to keep the codebase clean while maintaining deep context.
+5. Review the trade:
 
-### 1. Local Repository Documentation (The "How" and "When")
-- **ADRs:** Located in `DOCS/ADR/`. These are versioned architectural decisions.
-- **System Design:** Detailed blueprints are in `DOCS/`.
-- **Status:** Check `DOCS/milestones.md` (if applicable) for current development progress.
+   * Create a `TradeReview` after closure
 
-### 2. External LLM Wiki (The "Why" and "What")
-Permanent project memory, entity definitions, and cross-topic syntheses are maintained in the external Knowledge Base:
-`C:\Users\bosto\dockerstuff\knowledge-base\trading-system\`
+---
 
-- **Canonical Entities:** See `knowledge/entities/` in the Wiki for the domain model truth.
-- **Process & Rules:** See `knowledge/topics/` for synthesized trading rules and logic.
-- **Context Injection:** Before starting an AI coding session, provide the AI with the Wiki's `AGENTS.md` to prime it with long-term project memory.
-
-## Development Approach
-
-- no code without an explicit issue
-- work is phase-based and milestone-driven
-- architecture and domain clarity come before implementation detail
-- Docker is used pragmatically, not dogmatically
-
-## Local Development
-
-This project uses `uv`.
-
-Run the test suite:
-
-```powershell
-uv run pytest
-```
-
-Run the CLI:
-
-```powershell
-uv run trading-system version
-```
-
-Run the canonical Milestone 1 demo:
+### Run the Demo
 
 ```powershell
 uv run trading-system demo-planned-trade
 ```
 
-The demo uses in-memory repositories and prints each stage of the local workflow: plan approval, rule evaluation, position opening, fill recording, automatic close from fills, trade review creation, and lifecycle event recording.
-It records demo entry and exit fills, creates a manual review, and prints a compact final state summary.
+This runs the full lifecycle:
+
+> plan → approval → rules → position → fills → close → review
+
+---
+
+### Important Notes
+
+* Execution is **manual**
+* Prices and fills are **user-entered**
+* No broker or market data integration exists yet
+* The system is currently a **discipline and journaling tool**
+
+---
+
+## What is the MVP?
+
+The MVP (Minimum Viable Product) is:
+
+> A local, CLI-driven trading system that enforces structured trade intent, captures execution via manual fills, and supports post-trade review with full auditability.
+
+### MVP Includes
+
+* structured trade definition (idea → thesis → plan)
+* deterministic rule evaluation
+* position creation from approved plans
+* manual fill recording
+* automatic position state tracking
+* automatic position closure
+* one structured trade review per position
+* lifecycle audit trail
+
+---
+
+### MVP Does NOT Include
+
+* broker integration
+* automated execution
+* market data feeds
+* P&L analytics
+* dashboards or UI
+* AI-generated insights
+
+The MVP focuses on:
+
+> **discipline, structure, and auditability — not automation**
+
+---
+
+## Current Capabilities (Milestone 1)
+
+* trade idea → thesis → plan workflow
+* plan approval and rule validation
+* position opening from approved plan
+* manual fill recording
+* execution state tracking
+* automatic position closure
+* lifecycle event audit trail
+* one immutable trade review per position
+* CLI demo covering full lifecycle
+
+---
+
+## What Comes Next (Post-MVP)
+
+Future work will extend the system incrementally.
+
+### Planned Areas
+
+1. **Persistence**
+
+   * durable storage (SQLite or similar)
+
+2. **OrderIntent**
+
+   * bridge between plan and fills
+
+3. **Basic P&L**
+
+   * realized P&L from fills
+
+4. **Querying**
+
+   * list and inspect past trades
+
+5. **Market Data (read-only)**
+
+   * contextual price information
+
+6. **Broker Integration (later)**
+
+   * adapter only, not source of truth
+
+7. **Review Enhancements**
+
+   * tagging, filtering, learning
+
+---
+
+### Still Out of Scope
+
+* real-time trading systems
+* automated strategies
+* dashboards
+* AI decision engines
+
+---
+
+## Development Approach
+
+* no code without an explicit issue
+* milestone-driven development
+* domain-first design
+* strict boundary enforcement
+* simple implementations over flexible abstractions
+
+---
+
+## Local Development
+
+This project uses `uv`.
+
+### Run tests
+
+```powershell
+uv run pytest
+```
+
+### Run CLI
+
+```powershell
+uv run trading-system version
+```
+
+### Run demo
+
+```powershell
+uv run trading-system demo-planned-trade
+```
+
+---
+
+## Knowledge Base
+
+This project uses a split knowledge model:
+
+### Repository (source of truth for code)
+
+* `DOCS/ADR/` — architectural decisions
+* `DOCS/` — domain and system documentation
+
+### External Knowledge Base (long-term memory)
+
+Located at:
+
+```text
+C:\Users\bosto\dockerstuff\knowledge-base\trading-system\
+```
+
+Contains:
+
+* canonical entity definitions
+* trading rules and concepts
+* cross-topic synthesis
+
+---
 
 ## Status
 
-The repository has moved from design into initial implementation.
+Milestone 1 is complete.
 
-Completed Milestone 1 work so far:
+The system supports:
 
-- initial Python project scaffold
-- planned trade workflow skeleton
-- open-position workflow from approved trade plan
-- manual fill recording for open positions
-- automatic position close when fills reduce open quantity to zero
-- manual trade review for completed positions
+> intent → execution → closure → review
 
 Current focus:
 
-- keep the first vertical slice narrow and correct
-- preserve domain boundaries
-- add persistence behavior only through infrastructure adapters
+* maintaining domain clarity
+* preparing for persistence and OrderIntent (Milestone 2)
+
+---
+
+## Final Note
+
+This system is built to enforce **thinking quality**, not just track trades.
+
+If it feels “manual,” that is intentional.
+
+Automation will come later — on top of a correct foundation.
+
+```
+
+---
+
