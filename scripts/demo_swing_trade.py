@@ -47,7 +47,13 @@ def main() -> None:
         description="Trade plans must define risk before execution.",
     )
     passed, violations = RiskDefinedRule(risk_rule).evaluate(plan)
-    review = TradeReview(position_id=position.id, summary="Example review placeholder.")
+    review = TradeReview(
+        position_id=position.id,
+        summary="Example review placeholder.",
+        what_went_well="Example strength.",
+        what_went_poorly="Example weakness.",
+        lessons_learned=["Example lesson."],
+    )
 
     print(
         "Created scaffold demo: "

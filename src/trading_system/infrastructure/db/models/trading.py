@@ -109,7 +109,11 @@ class TradeReviewModel(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True)
     position_id: Mapped[UUID] = mapped_column(ForeignKey("positions.id"))
     summary: Mapped[str] = mapped_column(Text, nullable=False)
-    lessons: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    what_went_well: Mapped[str] = mapped_column(Text, nullable=False)
+    what_went_poorly: Mapped[str] = mapped_column(Text, nullable=False)
+    lessons_learned: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    follow_up_actions: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    rating: Mapped[int | None] = mapped_column(nullable=True)
     reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 

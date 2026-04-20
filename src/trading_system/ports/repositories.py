@@ -93,6 +93,10 @@ class TradeReviewRepository(Protocol):
         """Persist a trade review."""
         ...
 
+    def get_by_position_id(self, position_id: UUID) -> TradeReview | None:
+        """Return the review for a position, if one exists."""
+        ...
+
 
 class RuleEvaluationRepository(Protocol):
     """Persistence boundary for deterministic rule evaluation artifacts."""
