@@ -38,6 +38,7 @@ class FillService:
         if position is None:
             raise ValueError("Position does not exist.")
 
+        was_open = position.lifecycle_state == "open"
         fill = Fill(
             position_id=position.id,
             side=side,
@@ -65,4 +66,22 @@ class FillService:
                 },
             )
         )
+        if was_open and position.lifecycle_state == "closed":
+            self._lifecycle_events.add(
+                LifecycleEvent(
+                    entity_id=position.id,
+                    entity_type="Position",
+                    event_type="POSITION_CLOSED",
+                    note=f"Closed position from fill {fill.id}.",
+                    details={
+                        "position_id": str(position.id),
+                        "closed_at": position.closed_at.isoformat()
+                        if position.closed_at
+                        else None,
+                        "closing_fill_id": str(fill.id),
+                        "current_quantity": str(position.current_quantity),
+                        "close_reason": position.close_reason,
+                    },
+                )
+            )
         return fill

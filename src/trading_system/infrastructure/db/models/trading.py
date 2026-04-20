@@ -82,6 +82,8 @@ class PositionModel(Base):
     total_sold_quantity: Mapped[Decimal] = mapped_column(Numeric, nullable=False)
     current_quantity: Mapped[Decimal] = mapped_column(Numeric, nullable=False)
     average_entry_price: Mapped[Decimal | None] = mapped_column(Numeric)
+    closing_fill_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    close_reason: Mapped[str | None] = mapped_column(String(64))
 
 
 class FillModel(Base):
