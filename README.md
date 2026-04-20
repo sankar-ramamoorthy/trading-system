@@ -56,6 +56,7 @@ Milestone 1 is implementing the first thin vertical slice:
 
 ```text
 TradeIdea -> TradeThesis -> TradePlan -> plan approval -> RuleEvaluation -> Position -> Fill -> Position close -> TradeReview
+TradeIdea -> TradeThesis -> TradePlan -> plan approval -> RuleEvaluation -> Position -> Fill -> Position close -> LifecycleEvent
 ```
 
 `LifecycleEvent` records auditable state transitions throughout the trade lifecycle.

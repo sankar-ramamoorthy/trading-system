@@ -130,6 +130,7 @@ def demo_planned_trade() -> None:
         f"state={position.lifecycle_state} "
         f"review={review.id} "
         f"review_summary={review.summary!r} "
+        f"closed_at={position.closed_at} "
         f"lifecycle_events={len(lifecycle_events.items)}"
     )
 
