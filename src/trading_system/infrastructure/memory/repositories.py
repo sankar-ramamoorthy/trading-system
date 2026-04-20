@@ -4,6 +4,7 @@ from uuid import UUID
 
 from trading_system.domain.rules.rule_evaluation import RuleEvaluation
 from trading_system.domain.rules.violation import Violation
+from trading_system.domain.trading.fill import Fill
 from trading_system.domain.trading.idea import TradeIdea
 from trading_system.domain.trading.lifecycle import LifecycleEvent
 from trading_system.domain.trading.plan import TradePlan
@@ -73,6 +74,21 @@ class InMemoryPositionRepository:
     def get(self, position_id: UUID) -> Position | None:
         """Return a position by identity."""
         return self.items.get(position_id)
+
+    def update(self, position: Position) -> None:
+        """Persist changes to a position."""
+        self.items[position.id] = position
+
+
+class InMemoryFillRepository:
+    """Stores manual fills in memory for local workflows."""
+
+    def __init__(self) -> None:
+        self.items: dict[UUID, Fill] = {}
+
+    def add(self, fill: Fill) -> None:
+        """Persist a manual fill."""
+        self.items[fill.id] = fill
 
 
 class InMemoryLifecycleEventRepository:

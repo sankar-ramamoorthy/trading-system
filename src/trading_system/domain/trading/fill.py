@@ -14,5 +14,7 @@ class Fill:
     quantity: Decimal
     price: Decimal
     side: str
-    executed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    filled_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    notes: str | None = None
+    source: str = "manual"
     id: UUID = field(default_factory=uuid4)
