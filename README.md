@@ -146,14 +146,14 @@ Run the CLI:
 uv run trading-system version
 ```
 
-Run the local planned-trade demo:
+Run the canonical Milestone 1 demo:
 
 ```powershell
 uv run trading-system demo-planned-trade
 ```
 
-The demo uses in-memory repositories and exercises the local workflow through plan approval, rule evaluation, position opening, fill recording, automatic close from fills, trade review creation, and lifecycle event recording.
-It records demo entry and exit fills, creates a manual review, then reports fill count, current open quantity, position state, review id, review summary, and lifecycle event count.
+The demo uses in-memory repositories and prints each stage of the local workflow: plan approval, rule evaluation, position opening, fill recording, automatic close from fills, trade review creation, and lifecycle event recording.
+It records demo entry and exit fills, creates a manual review, and prints a compact final state summary.
 
 ## Status
 
