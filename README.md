@@ -26,20 +26,61 @@ This is **not** a black-box trading bot and not a generic indicator engine.
 
 The system follows a **modular monolith** architecture with clear internal boundaries.
 
-High-level layers:
+Implementation uses a Python `src/` layout:
 
-- Deterministic Control Layer
-- Market & Context Observation Layer
-- Context Intelligence Layer
-- Decision Support Layer
+```text
+src/trading_system/
+```
+
+Primary modules:
+
+- `app/` - CLI entrypoints
+- `domain/` - core business entities and domain logic
+- `services/` - use-case orchestration
+- `rules_engine/` - deterministic rule evaluation
+- `ports/` - repository and unit-of-work interfaces
+- `infrastructure/` - persistence and adapter implementations
 
 See:
 
-- `doc/adr/001-system-architecture.md`
-- `doc/adr/002-rules-vs-context.md`
-- `doc/adr/003-development-and-deployment-strategy.md`
-- `doc/adr/004-canonical-domain-and-source-of-truth.md`
-- `doc/system-blueprint.md`
+- `DOCS/ADR/001-system-architecture.md`
+- `DOCS/ADR/002-rules-vs-context.md`
+- `DOCS/ADR/003-development-and-deployment-strategy.md`
+- `DOCS/ADR/004-canonical-domain-and-source-of-truth.md`
+- `DOCS/domain-model.md`
+- `DOCS/systems-blueprint.md`
+
+## Current Workflow
+
+Milestone 1 is implementing the first thin vertical slice:
+
+```text
+TradeIdea -> TradeThesis -> TradePlan -> plan approval -> RuleEvaluation -> Position -> LifecycleEvent
+```
+
+Implemented local workflows currently support:
+
+- creating a `TradeIdea`
+- creating a `TradeThesis` linked to the idea
+- creating a `TradePlan` linked to the idea and thesis
+- approving a `TradePlan`
+- evaluating deterministic rules for an approved plan
+- opening a `Position` from an approved plan
+- recording a `POSITION_OPENED` lifecycle event
+
+The position workflow preserves the canonical rule that a `Position` originates from a `TradePlan`, not directly from a `TradeIdea`. Position `instrument_id` and `purpose` are derived from the linked idea through the approved plan.
+
+## Out of Scope Right Now
+
+The current implementation intentionally does not include:
+
+- broker integration
+- market data ingestion
+- AI or ML features
+- reconciliation workflows
+- FastAPI
+- fills beyond the scaffolded manual fill entity
+- trade review workflow implementation
 
 ## Documentation & Knowledge
 
@@ -65,13 +106,42 @@ Permanent project memory, entity definitions, and cross-topic syntheses are main
 - architecture and domain clarity come before implementation detail
 - Docker is used pragmatically, not dogmatically
 
+## Local Development
+
+This project uses `uv`.
+
+Run the test suite:
+
+```powershell
+uv run pytest
+```
+
+Run the CLI:
+
+```powershell
+uv run trading-system version
+```
+
+Run the local planned-trade demo:
+
+```powershell
+uv run trading-system demo-planned-trade
+```
+
+The demo uses in-memory repositories and exercises the local workflow through plan approval, rule evaluation, position opening, and lifecycle event recording.
+
 ## Status
 
-Early design and domain-definition phase.
+The repository has moved from design into initial implementation.
 
-Current priorities:
+Completed Milestone 1 work so far:
 
-- define canonical entities  - i think done
-- define schemas and source-of-truth boundaries - i think done
-- translate architecture into executable issues and milestones - i think done
-- Sync Knowledge Base: Initialize canonical entity pages in the Wiki based on DOCS/ADR-004. - I think Done
+- initial Python project scaffold
+- planned trade workflow skeleton
+- open-position workflow from approved trade plan
+
+Current focus:
+
+- keep the first vertical slice narrow and correct
+- preserve domain boundaries
+- add persistence behavior only through infrastructure adapters

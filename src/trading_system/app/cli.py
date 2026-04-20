@@ -6,6 +6,8 @@ import typer
 
 from trading_system.domain.rules.rule import Rule
 from trading_system.infrastructure.memory.repositories import (
+    InMemoryLifecycleEventRepository,
+    InMemoryPositionRepository,
     InMemoryRuleEvaluationRepository,
     InMemoryTradeIdeaRepository,
     InMemoryTradePlanRepository,
@@ -13,6 +15,7 @@ from trading_system.infrastructure.memory.repositories import (
     InMemoryViolationRepository,
 )
 from trading_system.rules_engine.implementations.risk_defined_rule import RiskDefinedRule
+from trading_system.services.position_service import PositionService
 from trading_system.services.rule_service import RuleService
 from trading_system.services.trade_planning_service import TradePlanningService
 
@@ -31,6 +34,8 @@ def demo_planned_trade() -> None:
     ideas = InMemoryTradeIdeaRepository()
     theses = InMemoryTradeThesisRepository()
     plans = InMemoryTradePlanRepository()
+    positions = InMemoryPositionRepository()
+    lifecycle_events = InMemoryLifecycleEventRepository()
     evaluations = InMemoryRuleEvaluationRepository()
     violations = InMemoryViolationRepository()
 
@@ -67,12 +72,20 @@ def demo_planned_trade() -> None:
         rules=[(risk_rule, RiskDefinedRule(risk_rule))],
     )
     rule_results = rule_service.evaluate_trade_plan_rules(approved_plan.id)
+    position_service = PositionService(
+        plan_repository=plans,
+        idea_repository=ideas,
+        position_repository=positions,
+        lifecycle_event_repository=lifecycle_events,
+    )
+    position = position_service.open_position_from_plan(approved_plan.id)
 
     typer.echo(
         "Created planned trade workflow: "
         f"idea={idea.id} thesis={thesis.id} plan={approved_plan.id} "
         f"approval_state={approved_plan.approval_state} "
-        f"evaluations={len(rule_results)} violations={len(violations.items)}"
+        f"evaluations={len(rule_results)} violations={len(violations.items)} "
+        f"position={position.id} lifecycle_events={len(lifecycle_events.items)}"
     )
 
 

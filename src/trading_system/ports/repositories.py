@@ -6,6 +6,7 @@ from uuid import UUID
 from trading_system.domain.rules.rule_evaluation import RuleEvaluation
 from trading_system.domain.rules.violation import Violation
 from trading_system.domain.trading.idea import TradeIdea
+from trading_system.domain.trading.lifecycle import LifecycleEvent
 from trading_system.domain.trading.plan import TradePlan
 from trading_system.domain.trading.position import Position
 from trading_system.domain.trading.review import TradeReview
@@ -57,6 +58,18 @@ class PositionRepository(Protocol):
 
     def add(self, position: Position) -> None:
         """Persist a position."""
+        ...
+
+    def get(self, position_id: UUID) -> Position | None:
+        """Return a position by identity."""
+        ...
+
+
+class LifecycleEventRepository(Protocol):
+    """Persistence boundary for auditable lifecycle events."""
+
+    def add(self, event: LifecycleEvent) -> None:
+        """Persist a lifecycle event."""
         ...
 
 
