@@ -5,7 +5,9 @@ from uuid import UUID
 from trading_system.domain.rules.rule_evaluation import RuleEvaluation
 from trading_system.domain.rules.violation import Violation
 from trading_system.domain.trading.idea import TradeIdea
+from trading_system.domain.trading.lifecycle import LifecycleEvent
 from trading_system.domain.trading.plan import TradePlan
+from trading_system.domain.trading.position import Position
 from trading_system.domain.trading.thesis import TradeThesis
 
 
@@ -56,6 +58,32 @@ class InMemoryTradePlanRepository:
     def update(self, plan: TradePlan) -> None:
         """Persist changes to a trade plan."""
         self.items[plan.id] = plan
+
+
+class InMemoryPositionRepository:
+    """Stores positions in memory for local workflows."""
+
+    def __init__(self) -> None:
+        self.items: dict[UUID, Position] = {}
+
+    def add(self, position: Position) -> None:
+        """Persist a position."""
+        self.items[position.id] = position
+
+    def get(self, position_id: UUID) -> Position | None:
+        """Return a position by identity."""
+        return self.items.get(position_id)
+
+
+class InMemoryLifecycleEventRepository:
+    """Stores lifecycle events in memory for local workflows."""
+
+    def __init__(self) -> None:
+        self.items: dict[UUID, LifecycleEvent] = {}
+
+    def add(self, event: LifecycleEvent) -> None:
+        """Persist a lifecycle event."""
+        self.items[event.id] = event
 
 
 class InMemoryRuleEvaluationRepository:
