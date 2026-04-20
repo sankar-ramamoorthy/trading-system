@@ -5,6 +5,7 @@ from uuid import UUID
 
 from trading_system.domain.rules.rule_evaluation import RuleEvaluation
 from trading_system.domain.rules.violation import Violation
+from trading_system.domain.trading.fill import Fill
 from trading_system.domain.trading.idea import TradeIdea
 from trading_system.domain.trading.lifecycle import LifecycleEvent
 from trading_system.domain.trading.plan import TradePlan
@@ -62,6 +63,18 @@ class PositionRepository(Protocol):
 
     def get(self, position_id: UUID) -> Position | None:
         """Return a position by identity."""
+        ...
+
+    def update(self, position: Position) -> None:
+        """Persist changes to a position."""
+        ...
+
+
+class FillRepository(Protocol):
+    """Persistence boundary for manual fill facts."""
+
+    def add(self, fill: Fill) -> None:
+        """Persist a manual fill."""
         ...
 
 

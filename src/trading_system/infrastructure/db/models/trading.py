@@ -78,6 +78,10 @@ class PositionModel(Base):
     lifecycle_state: Mapped[str] = mapped_column(String(32), nullable=False)
     opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    total_bought_quantity: Mapped[Decimal] = mapped_column(Numeric, nullable=False)
+    total_sold_quantity: Mapped[Decimal] = mapped_column(Numeric, nullable=False)
+    current_quantity: Mapped[Decimal] = mapped_column(Numeric, nullable=False)
+    average_entry_price: Mapped[Decimal | None] = mapped_column(Numeric)
 
 
 class FillModel(Base):
@@ -90,7 +94,9 @@ class FillModel(Base):
     quantity: Mapped[Decimal] = mapped_column(Numeric, nullable=False)
     price: Mapped[Decimal] = mapped_column(Numeric, nullable=False)
     side: Mapped[str] = mapped_column(String(16), nullable=False)
-    executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    filled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
 
 
 class TradeReviewModel(Base):
@@ -115,4 +121,5 @@ class LifecycleEventModel(Base):
     entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
     event_type: Mapped[str] = mapped_column(String(64), nullable=False)
     note: Mapped[str] = mapped_column(Text, nullable=False)
+    details: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
