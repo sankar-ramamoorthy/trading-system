@@ -47,16 +47,18 @@ See:
 - `DOCS/ADR/002-rules-vs-context.md`
 - `DOCS/ADR/003-development-and-deployment-strategy.md`
 - `DOCS/ADR/004-canonical-domain-and-source-of-truth.md`
+- `DOCS/ADR/005-mvp-definition-and-boundaries.md`
 - `DOCS/domain-model.md`
+- `DOCS/milestone-1-summary.md`
+- `DOCS/milestone-2-roadmap.md`
 - `DOCS/systems-blueprint.md`
 
 ## Current Workflow
 
-Milestone 1 is implementing the first thin vertical slice:
+Milestone 1 implements the first complete thin vertical slice:
 
 ```text
 TradeIdea -> TradeThesis -> TradePlan -> plan approval -> RuleEvaluation -> Position -> Fill -> Position close -> TradeReview
-TradeIdea -> TradeThesis -> TradePlan -> plan approval -> RuleEvaluation -> Position -> Fill -> Position close -> LifecycleEvent
 ```
 
 `LifecycleEvent` records auditable state transitions throughout the trade lifecycle.
@@ -90,6 +92,70 @@ Fill recording is manual only. The domain rejects invalid sides, non-positive qu
 Position closing is not a separate command. It is a domain state transition caused by execution reality: when a reducing fill brings `current_quantity` to exactly zero, the position moves to `closed`, `closed_at` is set, and the closing fill is recorded.
 
 Trade review is manual and intentionally simple. A review can be created only for a closed position, and Milestone 1 allows one immutable review per position.
+
+## How To Use This System (Milestone 1)
+
+Milestone 1 is CLI-driven. It is a structured discipline and journal tool, not an execution bot.
+
+Execution is manual:
+
+- the trader creates the idea, thesis, and plan
+- the trader approves the plan
+- deterministic rules are evaluated before execution
+- the trader records fills manually
+- the position closes when fills reduce open quantity to zero
+- the trader creates one manual review for the completed position
+
+Run the canonical Milestone 1 demo:
+
+```powershell
+uv run trading-system demo-planned-trade
+```
+
+The demo uses in-memory repositories and prints each stage:
+
+1. create trade idea
+2. create trade thesis
+3. create trade plan
+4. approve plan
+5. evaluate deterministic rules
+6. open position
+7. record entry fill
+8. record exit fill
+9. close position from fills
+10. create trade review
+
+The final summary includes approval state, rule evaluation count, violation count, fill count, open quantity, position state, review id, and lifecycle event count.
+
+## What Is The MVP?
+
+The MVP is a local, CLI-driven trading system that enforces structured trade intent, captures execution through manual fills, and supports post-trade review with auditability.
+
+The MVP includes:
+
+- canonical trade intent: `TradeIdea`, `TradeThesis`, `TradePlan`
+- deterministic rule evaluation and violation recording
+- position opening from an approved trade plan
+- manual fill recording
+- execution-state tracking on positions
+- automatic close when fills reduce open quantity to zero
+- one manual trade review per closed position
+- lifecycle events for auditable state transitions
+- in-memory demo infrastructure for local verification
+
+The MVP explicitly excludes:
+
+- broker integration
+- automated order placement
+- market data ingestion
+- AI or ML features
+- P&L, analytics, dashboards, and reporting
+- commissions, fees, and slippage modeling
+- fill correction or amendment workflows
+- manual force-close or reopen workflows
+- REST API or web UI
+
+The MVP philosophy is discipline over automation. The system first proves that trade intent, execution reality, closure, and review can be represented correctly before adding external systems or analytics.
 
 ## Out of Scope Right Now
 
@@ -155,9 +221,24 @@ uv run trading-system demo-planned-trade
 The demo uses in-memory repositories and prints each stage of the local workflow: plan approval, rule evaluation, position opening, fill recording, automatic close from fills, trade review creation, and lifecycle event recording.
 It records demo entry and exit fills, creates a manual review, and prints a compact final state summary.
 
+## What Comes Next (Post-MVP)
+
+Future work should remain incremental and preserve the domain boundaries established in Milestone 1.
+
+Likely next areas:
+
+- durable persistence with migrations and repository implementations
+- an `OrderIntent` layer between plans and execution facts
+- read-only market data context
+- basic P&L computation after fill state is stable
+- broker integration as an infrastructure adapter, not a source of trade meaning
+- improved review and learning workflows
+
+Detailed designs for those areas belong in future issues and ADRs.
+
 ## Status
 
-The repository has moved from design into initial implementation.
+Milestone 1 is complete as an MVP vertical slice.
 
 Completed Milestone 1 work so far:
 
