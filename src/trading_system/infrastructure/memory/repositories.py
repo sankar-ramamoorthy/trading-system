@@ -9,6 +9,7 @@ from trading_system.domain.trading.idea import TradeIdea
 from trading_system.domain.trading.lifecycle import LifecycleEvent
 from trading_system.domain.trading.plan import TradePlan
 from trading_system.domain.trading.position import Position
+from trading_system.domain.trading.review import TradeReview
 from trading_system.domain.trading.thesis import TradeThesis
 
 
@@ -100,6 +101,24 @@ class InMemoryLifecycleEventRepository:
     def add(self, event: LifecycleEvent) -> None:
         """Persist a lifecycle event."""
         self.items[event.id] = event
+
+
+class InMemoryTradeReviewRepository:
+    """Stores trade reviews in memory for local workflows."""
+
+    def __init__(self) -> None:
+        self.items: dict[UUID, TradeReview] = {}
+
+    def add(self, review: TradeReview) -> None:
+        """Persist a trade review."""
+        self.items[review.id] = review
+
+    def get_by_position_id(self, position_id: UUID) -> TradeReview | None:
+        """Return the review for a position, if one exists."""
+        for review in self.items.values():
+            if review.position_id == position_id:
+                return review
+        return None
 
 
 class InMemoryRuleEvaluationRepository:

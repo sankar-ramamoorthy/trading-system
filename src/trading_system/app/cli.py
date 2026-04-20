@@ -13,12 +13,14 @@ from trading_system.infrastructure.memory.repositories import (
     InMemoryRuleEvaluationRepository,
     InMemoryTradeIdeaRepository,
     InMemoryTradePlanRepository,
+    InMemoryTradeReviewRepository,
     InMemoryTradeThesisRepository,
     InMemoryViolationRepository,
 )
 from trading_system.rules_engine.implementations.risk_defined_rule import RiskDefinedRule
 from trading_system.services.fill_service import FillService
 from trading_system.services.position_service import PositionService
+from trading_system.services.review_service import ReviewService
 from trading_system.services.rule_service import RuleService
 from trading_system.services.trade_planning_service import TradePlanningService
 
@@ -40,6 +42,7 @@ def demo_planned_trade() -> None:
     positions = InMemoryPositionRepository()
     fills = InMemoryFillRepository()
     lifecycle_events = InMemoryLifecycleEventRepository()
+    reviews = InMemoryTradeReviewRepository()
     evaluations = InMemoryRuleEvaluationRepository()
     violations = InMemoryViolationRepository()
 
@@ -95,6 +98,27 @@ def demo_planned_trade() -> None:
         price=Decimal("25.50"),
         notes="Demo manual entry fill.",
     )
+    fill_service.record_manual_fill(
+        position_id=position.id,
+        side="sell",
+        quantity=Decimal("100"),
+        price=Decimal("27.00"),
+        notes="Demo manual exit fill.",
+    )
+    review_service = ReviewService(
+        position_repository=positions,
+        review_repository=reviews,
+        lifecycle_event_repository=lifecycle_events,
+    )
+    review = review_service.create_trade_review(
+        position_id=position.id,
+        summary="Demo review: followed the plan and exited completely.",
+        what_went_well="Entry and exit were recorded against the planned trade.",
+        what_went_poorly="Review details are placeholders for the demo.",
+        lessons_learned=["Keep execution records tied to the original plan."],
+        follow_up_actions=["Replace demo values with real review input."],
+        rating=4,
+    )
 
     typer.echo(
         "Created planned trade workflow: "
@@ -103,7 +127,9 @@ def demo_planned_trade() -> None:
         f"evaluations={len(rule_results)} violations={len(violations.items)} "
         f"position={position.id} fills={len(fills.items)} "
         f"open_quantity={position.current_quantity} "
-        f"average_entry={position.average_entry_price} "
+        f"state={position.lifecycle_state} "
+        f"review={review.id} "
+        f"review_summary={review.summary!r} "
         f"lifecycle_events={len(lifecycle_events.items)}"
     )
 
