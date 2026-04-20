@@ -35,7 +35,7 @@ def version() -> None:
 
 @app.command("demo-planned-trade")
 def demo_planned_trade() -> None:
-    """Run the planned trade workflow against in-memory repositories."""
+    """Run the full Milestone 1 workflow against in-memory repositories."""
     ideas = InMemoryTradeIdeaRepository()
     theses = InMemoryTradeThesisRepository()
     plans = InMemoryTradePlanRepository()
@@ -47,6 +47,9 @@ def demo_planned_trade() -> None:
     violations = InMemoryViolationRepository()
 
     planning = TradePlanningService(ideas, theses, plans)
+    typer.echo("Milestone 1 demo: planned trade -> execution -> review")
+    typer.echo("")
+
     idea = planning.create_trade_idea(
         instrument_id=uuid4(),
         playbook_id=uuid4(),
@@ -54,10 +57,14 @@ def demo_planned_trade() -> None:
         direction="long",
         horizon="days_to_weeks",
     )
+    typer.echo(f"1. Created trade idea: {idea.id}")
+
     thesis = planning.create_trade_thesis(
         trade_idea_id=idea.id,
         reasoning="Example discretionary setup.",
     )
+    typer.echo(f"2. Created trade thesis: {thesis.id}")
+
     plan = planning.create_trade_plan(
         trade_idea_id=idea.id,
         trade_thesis_id=thesis.id,
@@ -65,7 +72,10 @@ def demo_planned_trade() -> None:
         invalidation="Close below setup low.",
         risk_model="Defined stop and max loss.",
     )
+    typer.echo(f"3. Created trade plan: {plan.id}")
+
     approved_plan = planning.approve_trade_plan(plan.id)
+    typer.echo(f"4. Approved plan: approval_state={approved_plan.approval_state}")
 
     risk_rule = Rule(
         code="risk_defined",
@@ -79,6 +89,13 @@ def demo_planned_trade() -> None:
         rules=[(risk_rule, RiskDefinedRule(risk_rule))],
     )
     rule_results = rule_service.evaluate_trade_plan_rules(approved_plan.id)
+    passed_count = sum(1 for result in rule_results if result.passed)
+    typer.echo(
+        "5. Evaluated deterministic rules: "
+        f"{passed_count}/{len(rule_results)} passed, "
+        f"violations={len(violations.items)}"
+    )
+
     position_service = PositionService(
         plan_repository=plans,
         idea_repository=ideas,
@@ -86,25 +103,46 @@ def demo_planned_trade() -> None:
         lifecycle_event_repository=lifecycle_events,
     )
     position = position_service.open_position_from_plan(approved_plan.id)
+    typer.echo(
+        "6. Opened position: "
+        f"{position.id} state={position.lifecycle_state}"
+    )
+
     fill_service = FillService(
         position_repository=positions,
         fill_repository=fills,
         lifecycle_event_repository=lifecycle_events,
     )
-    fill_service.record_manual_fill(
+    entry_fill = fill_service.record_manual_fill(
         position_id=position.id,
         side="buy",
         quantity=Decimal("100"),
         price=Decimal("25.50"),
         notes="Demo manual entry fill.",
     )
-    fill_service.record_manual_fill(
+    typer.echo(
+        "7. Recorded entry fill: "
+        f"{entry_fill.quantity} @ {entry_fill.price}; "
+        f"open_quantity={position.current_quantity}"
+    )
+
+    exit_fill = fill_service.record_manual_fill(
         position_id=position.id,
         side="sell",
         quantity=Decimal("100"),
         price=Decimal("27.00"),
         notes="Demo manual exit fill.",
     )
+    typer.echo(
+        "8. Recorded exit fill: "
+        f"{exit_fill.quantity} @ {exit_fill.price}; "
+        f"open_quantity={position.current_quantity}"
+    )
+    typer.echo(
+        "9. Position closed from fills: "
+        f"state={position.lifecycle_state} closed_at={position.closed_at}"
+    )
+
     review_service = ReviewService(
         position_repository=positions,
         review_repository=reviews,
@@ -119,18 +157,22 @@ def demo_planned_trade() -> None:
         follow_up_actions=["Replace demo values with real review input."],
         rating=4,
     )
-
     typer.echo(
-        "Created planned trade workflow: "
-        f"idea={idea.id} thesis={thesis.id} plan={approved_plan.id} "
-        f"approval_state={approved_plan.approval_state} "
-        f"evaluations={len(rule_results)} violations={len(violations.items)} "
-        f"position={position.id} fills={len(fills.items)} "
-        f"open_quantity={position.current_quantity} "
-        f"state={position.lifecycle_state} "
-        f"review={review.id} "
-        f"review_summary={review.summary!r} "
-        f"closed_at={position.closed_at} "
+        "10. Created trade review: "
+        f"{review.id} rating={review.rating} summary={review.summary!r}"
+    )
+
+    typer.echo("")
+    typer.echo(
+        "Final summary: "
+        f"plan={approved_plan.id}, "
+        f"approval_state={approved_plan.approval_state}, "
+        f"rule_evaluations={len(rule_results)}, "
+        f"violations={len(violations.items)}, "
+        f"fills={len(fills.items)}, "
+        f"open_quantity={position.current_quantity}, "
+        f"position_state={position.lifecycle_state}, "
+        f"review={review.id}, "
         f"lifecycle_events={len(lifecycle_events.items)}"
     )
 
