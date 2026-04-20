@@ -58,6 +58,8 @@ Milestone 1 is implementing the first thin vertical slice:
 TradeIdea -> TradeThesis -> TradePlan -> plan approval -> RuleEvaluation -> Position -> Fill -> Position close -> TradeReview
 ```
 
+`LifecycleEvent` records auditable state transitions throughout the trade lifecycle.
+
 Implemented local workflows currently support:
 
 - creating a `TradeIdea`
