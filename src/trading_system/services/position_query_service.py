@@ -1,0 +1,96 @@
+"""Read-only workflows for persisted position retrieval."""
+
+from dataclasses import dataclass
+from uuid import UUID
+
+from trading_system.domain.trading.fill import Fill
+from trading_system.domain.trading.idea import TradeIdea
+from trading_system.domain.trading.lifecycle import LifecycleEvent
+from trading_system.domain.trading.plan import TradePlan
+from trading_system.domain.trading.position import Position
+from trading_system.domain.trading.review import TradeReview
+from trading_system.ports.repositories import (
+    FillRepository,
+    LifecycleEventRepository,
+    PositionRepository,
+    TradeIdeaRepository,
+    TradePlanRepository,
+    TradeReviewRepository,
+)
+
+
+@dataclass(frozen=True)
+class PositionDetail:
+    """Composite read model for inspecting a persisted position."""
+
+    position: Position
+    trade_plan: TradePlan
+    trade_idea: TradeIdea
+    fills: list[Fill]
+    review: TradeReview | None
+
+
+class PositionQueryService:
+    """Coordinates read-only position retrieval without persistence details."""
+
+    def __init__(
+        self,
+        position_repository: PositionRepository,
+        plan_repository: TradePlanRepository,
+        idea_repository: TradeIdeaRepository,
+        fill_repository: FillRepository,
+        review_repository: TradeReviewRepository,
+        lifecycle_event_repository: LifecycleEventRepository,
+    ) -> None:
+        self._positions = position_repository
+        self._plans = plan_repository
+        self._ideas = idea_repository
+        self._fills = fill_repository
+        self._reviews = review_repository
+        self._lifecycle_events = lifecycle_event_repository
+
+    def list_positions(self, lifecycle_state: str | None = None) -> list[Position]:
+        """Return persisted positions, optionally filtered by lifecycle state."""
+        positions = self._positions.list_all()
+        if lifecycle_state is not None:
+            positions = [
+                position
+                for position in positions
+                if position.lifecycle_state == lifecycle_state
+            ]
+        return sorted(positions, key=lambda position: position.opened_at)
+
+    def get_position_detail(self, position_id: UUID) -> PositionDetail:
+        """Return a position with linked plan, idea, fills, and review."""
+        position = self._positions.get(position_id)
+        if position is None:
+            raise ValueError("Position does not exist.")
+
+        plan = self._plans.get(position.trade_plan_id)
+        if plan is None:
+            raise ValueError("Trade plan does not exist for position.")
+
+        idea = self._ideas.get(plan.trade_idea_id)
+        if idea is None:
+            raise ValueError("Trade idea does not exist for position.")
+
+        fills = sorted(
+            self._fills.list_by_position_id(position.id),
+            key=lambda fill: fill.filled_at,
+        )
+        review = self._reviews.get_by_position_id(position.id)
+        return PositionDetail(
+            position=position,
+            trade_plan=plan,
+            trade_idea=idea,
+            fills=fills,
+            review=review,
+        )
+
+    def get_position_timeline(self, position_id: UUID) -> list[LifecycleEvent]:
+        """Return lifecycle events for a position in chronological order."""
+        if self._positions.get(position_id) is None:
+            raise ValueError("Position does not exist.")
+
+        events = self._lifecycle_events.list_by_entity("Position", position_id)
+        return sorted(events, key=lambda event: event.occurred_at)

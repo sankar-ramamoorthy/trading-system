@@ -69,6 +69,10 @@ class PositionRepository(Protocol):
         """Persist changes to a position."""
         ...
 
+    def list_all(self) -> list[Position]:
+        """Return all positions."""
+        ...
+
 
 class FillRepository(Protocol):
     """Persistence boundary for manual fill facts."""
@@ -77,12 +81,24 @@ class FillRepository(Protocol):
         """Persist a manual fill."""
         ...
 
+    def list_by_position_id(self, position_id: UUID) -> list[Fill]:
+        """Return fills for a position."""
+        ...
+
 
 class LifecycleEventRepository(Protocol):
     """Persistence boundary for auditable lifecycle events."""
 
     def add(self, event: LifecycleEvent) -> None:
         """Persist a lifecycle event."""
+        ...
+
+    def list_by_entity(
+        self,
+        entity_type: str,
+        entity_id: UUID,
+    ) -> list[LifecycleEvent]:
+        """Return lifecycle events for an entity."""
         ...
 
 
