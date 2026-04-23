@@ -37,6 +37,10 @@ Milestone 2 should not expand into broker integration, market data ingestion, AI
 
 Replace in-memory demo repositories with durable persistence.
 
+Issue 9 starts with local JSON file persistence for the existing demo workflow.
+SQLite, Postgres, and migrations remain later options when the storage needs justify
+database behavior.
+
 Initial scope should include:
 
 - `TradeIdea`
@@ -59,6 +63,9 @@ Potential CLI commands:
 - show position
 - list closed positions
 - show associated fills and review
+
+Issue 10 starts these workflows with read-only JSON-backed CLI commands for
+listing positions, showing a position, and showing a position lifecycle timeline.
 
 ### OrderIntent
 

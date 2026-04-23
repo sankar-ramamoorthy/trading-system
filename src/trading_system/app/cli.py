@@ -1,24 +1,18 @@
 """Typer command-line entrypoint for local trading workflows."""
 
+from datetime import datetime
 from decimal import Decimal
-from uuid import uuid4
+import os
+from pathlib import Path
+from uuid import UUID, uuid4
 
 import typer
 
 from trading_system.domain.rules.rule import Rule
-from trading_system.infrastructure.memory.repositories import (
-    InMemoryFillRepository,
-    InMemoryLifecycleEventRepository,
-    InMemoryPositionRepository,
-    InMemoryRuleEvaluationRepository,
-    InMemoryTradeIdeaRepository,
-    InMemoryTradePlanRepository,
-    InMemoryTradeReviewRepository,
-    InMemoryTradeThesisRepository,
-    InMemoryViolationRepository,
-)
+from trading_system.infrastructure.json.repositories import build_json_repositories
 from trading_system.rules_engine.implementations.risk_defined_rule import RiskDefinedRule
 from trading_system.services.fill_service import FillService
+from trading_system.services.position_query_service import PositionQueryService
 from trading_system.services.position_service import PositionService
 from trading_system.services.review_service import ReviewService
 from trading_system.services.rule_service import RuleService
@@ -35,19 +29,21 @@ def version() -> None:
 
 @app.command("demo-planned-trade")
 def demo_planned_trade() -> None:
-    """Run the full Milestone 1 workflow against in-memory repositories."""
-    ideas = InMemoryTradeIdeaRepository()
-    theses = InMemoryTradeThesisRepository()
-    plans = InMemoryTradePlanRepository()
-    positions = InMemoryPositionRepository()
-    fills = InMemoryFillRepository()
-    lifecycle_events = InMemoryLifecycleEventRepository()
-    reviews = InMemoryTradeReviewRepository()
-    evaluations = InMemoryRuleEvaluationRepository()
-    violations = InMemoryViolationRepository()
+    """Run the full Milestone 1 workflow against durable JSON repositories."""
+    repositories = build_json_repositories(_json_store_path())
+    ideas = repositories.ideas
+    theses = repositories.theses
+    plans = repositories.plans
+    positions = repositories.positions
+    fills = repositories.fills
+    lifecycle_events = repositories.lifecycle_events
+    reviews = repositories.reviews
+    evaluations = repositories.evaluations
+    violations = repositories.violations
 
     planning = TradePlanningService(ideas, theses, plans)
     typer.echo("Milestone 1 demo: planned trade -> execution -> review")
+    typer.echo(f"JSON store: {repositories.store_path}")
     typer.echo("")
 
     idea = planning.create_trade_idea(
@@ -93,7 +89,7 @@ def demo_planned_trade() -> None:
     typer.echo(
         "5. Evaluated deterministic rules: "
         f"{passed_count}/{len(rule_results)} passed, "
-        f"violations={len(violations.items)}"
+        f"violations={sum(1 for result in rule_results if not result.passed)}"
     )
 
     position_service = PositionService(
@@ -120,10 +116,13 @@ def demo_planned_trade() -> None:
         price=Decimal("25.50"),
         notes="Demo manual entry fill.",
     )
+    position_after_entry = positions.get(position.id)
+    if position_after_entry is None:
+        raise RuntimeError("Position disappeared after entry fill persistence.")
     typer.echo(
         "7. Recorded entry fill: "
         f"{entry_fill.quantity} @ {entry_fill.price}; "
-        f"open_quantity={position.current_quantity}"
+        f"open_quantity={position_after_entry.current_quantity}"
     )
 
     exit_fill = fill_service.record_manual_fill(
@@ -133,14 +132,18 @@ def demo_planned_trade() -> None:
         price=Decimal("27.00"),
         notes="Demo manual exit fill.",
     )
+    position_after_exit = positions.get(position.id)
+    if position_after_exit is None:
+        raise RuntimeError("Position disappeared after exit fill persistence.")
     typer.echo(
         "8. Recorded exit fill: "
         f"{exit_fill.quantity} @ {exit_fill.price}; "
-        f"open_quantity={position.current_quantity}"
+        f"open_quantity={position_after_exit.current_quantity}"
     )
     typer.echo(
         "9. Position closed from fills: "
-        f"state={position.lifecycle_state} closed_at={position.closed_at}"
+        f"state={position_after_exit.lifecycle_state} "
+        f"closed_at={position_after_exit.closed_at}"
     )
 
     review_service = ReviewService(
@@ -168,13 +171,160 @@ def demo_planned_trade() -> None:
         f"plan={approved_plan.id}, "
         f"approval_state={approved_plan.approval_state}, "
         f"rule_evaluations={len(rule_results)}, "
-        f"violations={len(violations.items)}, "
-        f"fills={len(fills.items)}, "
-        f"open_quantity={position.current_quantity}, "
-        f"position_state={position.lifecycle_state}, "
+        f"violations={sum(1 for result in rule_results if not result.passed)}, "
+        "fills=2, "
+        f"open_quantity={position_after_exit.current_quantity}, "
+        f"position_state={position_after_exit.lifecycle_state}, "
         f"review={review.id}, "
-        f"lifecycle_events={len(lifecycle_events.items)}"
+        "lifecycle_events=5"
     )
+
+
+@app.command("list-positions")
+def list_positions(
+    state: str | None = typer.Option(
+        None,
+        "--state",
+        help="Filter positions by lifecycle state, such as open or closed.",
+    ),
+) -> None:
+    """List persisted positions from the local JSON store."""
+    query_service = _position_query_service()
+    positions = query_service.list_positions(lifecycle_state=state)
+    if not positions:
+        typer.echo("No positions found.")
+        return
+
+    typer.echo("POSITION_ID | STATE | PURPOSE | QTY | OPENED_AT | CLOSED_AT")
+    for position in positions:
+        typer.echo(
+            " | ".join(
+                [
+                    str(position.id),
+                    position.lifecycle_state,
+                    position.purpose,
+                    str(position.current_quantity),
+                    position.opened_at.isoformat(),
+                    _format_optional_datetime(position.closed_at),
+                ]
+            )
+        )
+
+
+@app.command("show-position")
+def show_position(position_id: str) -> None:
+    """Show a persisted position with linked plan, idea, fills, and review."""
+    query_service = _position_query_service()
+    try:
+        detail = query_service.get_position_detail(_parse_uuid(position_id))
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    position = detail.position
+    plan = detail.trade_plan
+    idea = detail.trade_idea
+
+    typer.echo(f"Position {position.id}")
+    typer.echo(f"state: {position.lifecycle_state}")
+    typer.echo(f"purpose: {position.purpose}")
+    typer.echo(f"instrument_id: {position.instrument_id}")
+    typer.echo(f"trade_plan_id: {position.trade_plan_id}")
+    typer.echo(f"current_quantity: {position.current_quantity}")
+    typer.echo(f"average_entry_price: {position.average_entry_price}")
+    typer.echo(f"opened_at: {position.opened_at.isoformat()}")
+    typer.echo(f"closed_at: {_format_optional_datetime(position.closed_at)}")
+    typer.echo("")
+    typer.echo("Trade plan")
+    typer.echo(f"id: {plan.id}")
+    typer.echo(f"approval_state: {plan.approval_state}")
+    typer.echo(f"entry_criteria: {plan.entry_criteria}")
+    typer.echo(f"invalidation: {plan.invalidation}")
+    typer.echo(f"risk_model: {plan.risk_model}")
+    typer.echo("")
+    typer.echo("Trade idea")
+    typer.echo(f"id: {idea.id}")
+    typer.echo(f"purpose: {idea.purpose}")
+    typer.echo(f"direction: {idea.direction}")
+    typer.echo(f"horizon: {idea.horizon}")
+    typer.echo(f"instrument_id: {idea.instrument_id}")
+    typer.echo("")
+    typer.echo("Fills")
+    if detail.fills:
+        for fill in detail.fills:
+            typer.echo(
+                f"{fill.filled_at.isoformat()} | {fill.side} | "
+                f"{fill.quantity} @ {fill.price} | source={fill.source} | "
+                f"id={fill.id}"
+            )
+    else:
+        typer.echo("No fills found.")
+    typer.echo("")
+    typer.echo("Review")
+    if detail.review is None:
+        typer.echo("No review found.")
+    else:
+        typer.echo(f"id: {detail.review.id}")
+        typer.echo(f"rating: {detail.review.rating}")
+        typer.echo(f"summary: {detail.review.summary}")
+
+
+@app.command("show-position-timeline")
+def show_position_timeline(position_id: str) -> None:
+    """Show lifecycle events for a persisted position."""
+    query_service = _position_query_service()
+    try:
+        events = query_service.get_position_timeline(_parse_uuid(position_id))
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    if not events:
+        typer.echo("No lifecycle events found.")
+        return
+
+    typer.echo("OCCURRED_AT | EVENT_TYPE | ENTITY_TYPE | NOTE")
+    for event in events:
+        typer.echo(
+            " | ".join(
+                [
+                    event.occurred_at.isoformat(),
+                    event.event_type,
+                    event.entity_type,
+                    event.note,
+                ]
+            )
+        )
+
+
+def _json_store_path() -> Path:
+    """Return the configured local JSON persistence path."""
+    configured = os.environ.get("TRADING_SYSTEM_STORE_PATH")
+    if configured:
+        return Path(configured)
+    return Path(".trading-system") / "store.json"
+
+
+def _position_query_service() -> PositionQueryService:
+    """Build a position query service from JSON repositories."""
+    repositories = build_json_repositories(_json_store_path())
+    return PositionQueryService(
+        position_repository=repositories.positions,
+        plan_repository=repositories.plans,
+        idea_repository=repositories.ideas,
+        fill_repository=repositories.fills,
+        review_repository=repositories.reviews,
+        lifecycle_event_repository=repositories.lifecycle_events,
+    )
+
+
+def _parse_uuid(value: str) -> UUID:
+    """Parse a CLI UUID argument with a clear Typer error."""
+    try:
+        return UUID(value)
+    except ValueError as exc:
+        raise typer.BadParameter("must be a valid UUID") from exc
+
+
+def _format_optional_datetime(value: datetime | None) -> str:
+    """Format optional datetime values for CLI output."""
+    return "" if value is None else value.isoformat()
 
 
 def main() -> None:

@@ -132,6 +132,14 @@ This runs the full lifecycle:
 
 > plan → approval → rules → position → fills → close → review
 
+The demo now uses local JSON persistence. By default it writes to:
+
+```text
+.trading-system/store.json
+```
+
+Set `TRADING_SYSTEM_STORE_PATH` to use a different local file.
+
 ---
 
 ### Important Notes
@@ -199,7 +207,7 @@ Future work will extend the system incrementally.
 
 1. **Persistence**
 
-   * durable storage (SQLite or similar)
+   * local JSON persistence first; SQLite/Postgres remain later options
 
 2. **OrderIntent**
 
@@ -266,6 +274,15 @@ uv run trading-system version
 
 ```powershell
 uv run trading-system demo-planned-trade
+```
+
+### Inspect persisted positions
+
+```powershell
+uv run trading-system list-positions
+uv run trading-system list-positions --state closed
+uv run trading-system show-position <position-id>
+uv run trading-system show-position-timeline <position-id>
 ```
 
 ---
