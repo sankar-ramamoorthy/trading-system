@@ -9,14 +9,22 @@ from uuid import UUID, uuid4
 import typer
 
 from trading_system.domain.rules.rule import Rule
-from trading_system.infrastructure.json.repositories import build_json_repositories
+from trading_system.domain.trading.order_intent import OrderIntent, OrderSide, OrderType
+from trading_system.domain.trading.review import TradeReview
+from trading_system.infrastructure.json.repositories import (
+    JsonRepositorySet,
+    build_json_repositories,
+)
 from trading_system.rules_engine.implementations.risk_defined_rule import RiskDefinedRule
+from trading_system.services.create_order_intent_service import CreateOrderIntentService
 from trading_system.services.fill_service import FillService
 from trading_system.services.position_query_service import PositionQueryService
 from trading_system.services.position_service import PositionService
+from trading_system.services.review_query_service import ReviewQueryService
 from trading_system.services.review_service import ReviewService
 from trading_system.services.rule_service import RuleService
 from trading_system.services.trade_planning_service import TradePlanningService
+from trading_system.services.trade_query_service import TradeQueryService
 
 app = typer.Typer(help="Structured discretionary trading system.")
 
@@ -30,11 +38,12 @@ def version() -> None:
 @app.command("demo-planned-trade")
 def demo_planned_trade() -> None:
     """Run the full Milestone 1 workflow against durable JSON repositories."""
-    repositories = build_json_repositories(_json_store_path())
+    repositories = _repositories()
     ideas = repositories.ideas
     theses = repositories.theses
     plans = repositories.plans
     positions = repositories.positions
+    order_intents = repositories.order_intents
     fills = repositories.fills
     lifecycle_events = repositories.lifecycle_events
     reviews = repositories.reviews
@@ -73,18 +82,7 @@ def demo_planned_trade() -> None:
     approved_plan = planning.approve_trade_plan(plan.id)
     typer.echo(f"4. Approved plan: approval_state={approved_plan.approval_state}")
 
-    risk_rule = Rule(
-        code="risk_defined",
-        name="Risk defined",
-        description="Trade plans must define risk before execution.",
-    )
-    rule_service = RuleService(
-        plan_repository=plans,
-        evaluation_repository=evaluations,
-        violation_repository=violations,
-        rules=[(risk_rule, RiskDefinedRule(risk_rule))],
-    )
-    rule_results = rule_service.evaluate_trade_plan_rules(approved_plan.id)
+    rule_results = _rule_service(repositories).evaluate_trade_plan_rules(approved_plan.id)
     passed_count = sum(1 for result in rule_results if result.passed)
     typer.echo(
         "5. Evaluated deterministic rules: "
@@ -98,9 +96,28 @@ def demo_planned_trade() -> None:
         position_repository=positions,
         lifecycle_event_repository=lifecycle_events,
     )
+    order_intent_service = CreateOrderIntentService(
+        plan_repository=plans,
+        order_intent_repository=order_intents,
+        evaluation_repository=evaluations,
+        lifecycle_event_repository=lifecycle_events,
+    )
+    order_intent = order_intent_service.create_order_intent(
+        trade_plan_id=approved_plan.id,
+        symbol="DEMO",
+        side=OrderSide.BUY,
+        order_type=OrderType.LIMIT,
+        quantity=Decimal("100"),
+        limit_price=Decimal("25.50"),
+        notes="Demo order intent before manual fill entry.",
+    )
+    typer.echo(
+        "6. Created order intent: "
+        f"{order_intent.id} status={order_intent.status.value}"
+    )
     position = position_service.open_position_from_plan(approved_plan.id)
     typer.echo(
-        "6. Opened position: "
+        "7. Opened position: "
         f"{position.id} state={position.lifecycle_state}"
     )
 
@@ -108,6 +125,7 @@ def demo_planned_trade() -> None:
         position_repository=positions,
         fill_repository=fills,
         lifecycle_event_repository=lifecycle_events,
+        order_intent_repository=order_intents,
     )
     entry_fill = fill_service.record_manual_fill(
         position_id=position.id,
@@ -115,12 +133,13 @@ def demo_planned_trade() -> None:
         quantity=Decimal("100"),
         price=Decimal("25.50"),
         notes="Demo manual entry fill.",
+        order_intent_id=order_intent.id,
     )
     position_after_entry = positions.get(position.id)
     if position_after_entry is None:
         raise RuntimeError("Position disappeared after entry fill persistence.")
     typer.echo(
-        "7. Recorded entry fill: "
+        "8. Recorded entry fill: "
         f"{entry_fill.quantity} @ {entry_fill.price}; "
         f"open_quantity={position_after_entry.current_quantity}"
     )
@@ -131,17 +150,18 @@ def demo_planned_trade() -> None:
         quantity=Decimal("100"),
         price=Decimal("27.00"),
         notes="Demo manual exit fill.",
+        order_intent_id=order_intent.id,
     )
     position_after_exit = positions.get(position.id)
     if position_after_exit is None:
         raise RuntimeError("Position disappeared after exit fill persistence.")
     typer.echo(
-        "8. Recorded exit fill: "
+        "9. Recorded exit fill: "
         f"{exit_fill.quantity} @ {exit_fill.price}; "
         f"open_quantity={position_after_exit.current_quantity}"
     )
     typer.echo(
-        "9. Position closed from fills: "
+        "10. Position closed from fills: "
         f"state={position_after_exit.lifecycle_state} "
         f"closed_at={position_after_exit.closed_at}"
     )
@@ -161,7 +181,7 @@ def demo_planned_trade() -> None:
         rating=4,
     )
     typer.echo(
-        "10. Created trade review: "
+        "11. Created trade review: "
         f"{review.id} rating={review.rating} summary={review.summary!r}"
     )
 
@@ -169,6 +189,7 @@ def demo_planned_trade() -> None:
     typer.echo(
         "Final summary: "
         f"plan={approved_plan.id}, "
+        f"order_intent={order_intent.id}, "
         f"approval_state={approved_plan.approval_state}, "
         f"rule_evaluations={len(rule_results)}, "
         f"violations={sum(1 for result in rule_results if not result.passed)}, "
@@ -176,8 +197,481 @@ def demo_planned_trade() -> None:
         f"open_quantity={position_after_exit.current_quantity}, "
         f"position_state={position_after_exit.lifecycle_state}, "
         f"review={review.id}, "
-        "lifecycle_events=5"
+        "lifecycle_events=6"
     )
+
+
+@app.command("create-trade-idea")
+def create_trade_idea(
+    instrument_id: str = typer.Option(..., "--instrument-id"),
+    playbook_id: str = typer.Option(..., "--playbook-id"),
+    purpose: str = typer.Option(..., "--purpose"),
+    direction: str = typer.Option(..., "--direction"),
+    horizon: str = typer.Option(..., "--horizon"),
+) -> None:
+    """Create and persist a trade idea."""
+    repositories = _repositories()
+    planning = TradePlanningService(
+        repositories.ideas,
+        repositories.theses,
+        repositories.plans,
+    )
+    idea = _run_service(
+        lambda: planning.create_trade_idea(
+            instrument_id=_parse_uuid(instrument_id),
+            playbook_id=_parse_uuid(playbook_id),
+            purpose=purpose,
+            direction=direction,
+            horizon=horizon,
+        )
+    )
+    typer.echo(f"trade_idea_id: {idea.id}")
+    typer.echo(f"status: {idea.status}")
+    typer.echo(f"purpose: {idea.purpose}")
+    typer.echo(f"direction: {idea.direction}")
+    typer.echo(f"horizon: {idea.horizon}")
+
+
+@app.command("create-trade-thesis")
+def create_trade_thesis(
+    trade_idea_id: str = typer.Argument(...),
+    reasoning: str = typer.Option(..., "--reasoning"),
+    supporting_evidence: list[str] = typer.Option(
+        None,
+        "--supporting-evidence",
+        help="Repeat to add multiple supporting evidence items.",
+    ),
+    risks: list[str] = typer.Option(
+        None,
+        "--risk",
+        help="Repeat to add multiple risks.",
+    ),
+    disconfirming_signals: list[str] = typer.Option(
+        None,
+        "--disconfirming-signal",
+        help="Repeat to add multiple disconfirming signals.",
+    ),
+) -> None:
+    """Create and persist a trade thesis."""
+    repositories = _repositories()
+    planning = TradePlanningService(
+        repositories.ideas,
+        repositories.theses,
+        repositories.plans,
+    )
+    thesis = _run_service(
+        lambda: planning.create_trade_thesis(
+            trade_idea_id=_parse_uuid(trade_idea_id),
+            reasoning=reasoning,
+            supporting_evidence=supporting_evidence,
+            risks=risks,
+            disconfirming_signals=disconfirming_signals,
+        )
+    )
+    typer.echo(f"trade_thesis_id: {thesis.id}")
+    typer.echo(f"trade_idea_id: {thesis.trade_idea_id}")
+    typer.echo(f"reasoning: {thesis.reasoning}")
+    typer.echo(f"supporting_evidence_count: {len(thesis.supporting_evidence)}")
+    typer.echo(f"risks_count: {len(thesis.risks)}")
+    typer.echo(f"disconfirming_signals_count: {len(thesis.disconfirming_signals)}")
+
+
+@app.command("create-trade-plan")
+def create_trade_plan(
+    trade_idea_id: str = typer.Option(..., "--trade-idea-id"),
+    trade_thesis_id: str = typer.Option(..., "--trade-thesis-id"),
+    entry_criteria: str = typer.Option(..., "--entry-criteria"),
+    invalidation: str = typer.Option(..., "--invalidation"),
+    targets: list[str] = typer.Option(
+        None,
+        "--target",
+        help="Repeat to add multiple targets.",
+    ),
+    risk_model: str | None = typer.Option(None, "--risk-model"),
+    sizing_assumptions: str | None = typer.Option(None, "--sizing-assumptions"),
+) -> None:
+    """Create and persist a trade plan."""
+    repositories = _repositories()
+    planning = TradePlanningService(
+        repositories.ideas,
+        repositories.theses,
+        repositories.plans,
+    )
+    plan = _run_service(
+        lambda: planning.create_trade_plan(
+            trade_idea_id=_parse_uuid(trade_idea_id),
+            trade_thesis_id=_parse_uuid(trade_thesis_id),
+            entry_criteria=entry_criteria,
+            invalidation=invalidation,
+            targets=targets,
+            risk_model=risk_model,
+            sizing_assumptions=sizing_assumptions,
+        )
+    )
+    typer.echo(f"trade_plan_id: {plan.id}")
+    typer.echo(f"approval_state: {plan.approval_state}")
+    typer.echo(f"trade_idea_id: {plan.trade_idea_id}")
+    typer.echo(f"trade_thesis_id: {plan.trade_thesis_id}")
+    typer.echo(f"targets_count: {len(plan.targets)}")
+
+
+@app.command("approve-trade-plan")
+def approve_trade_plan(trade_plan_id: str) -> None:
+    """Approve a persisted trade plan."""
+    repositories = _repositories()
+    planning = TradePlanningService(
+        repositories.ideas,
+        repositories.theses,
+        repositories.plans,
+    )
+    plan = _run_service(lambda: planning.approve_trade_plan(_parse_uuid(trade_plan_id)))
+    typer.echo(f"trade_plan_id: {plan.id}")
+    typer.echo(f"approval_state: {plan.approval_state}")
+
+
+@app.command("evaluate-trade-plan-rules")
+def evaluate_trade_plan_rules(trade_plan_id: str) -> None:
+    """Run deterministic rules for one approved trade plan."""
+    evaluations = _run_service(
+        lambda: _rule_service(_repositories()).evaluate_trade_plan_rules(
+            _parse_uuid(trade_plan_id)
+        )
+    )
+    typer.echo(f"trade_plan_id: {trade_plan_id}")
+    typer.echo(f"rule_evaluations: {len(evaluations)}")
+    typer.echo(f"passed: {sum(1 for evaluation in evaluations if evaluation.passed)}")
+    typer.echo(
+        f"failed: {sum(1 for evaluation in evaluations if not evaluation.passed)}"
+    )
+    for evaluation in evaluations:
+        typer.echo(
+            f"{evaluation.evaluated_at.isoformat()} | passed={evaluation.passed} | "
+            f"rule_id={evaluation.rule_id} | details={evaluation.details or ''}"
+        )
+
+
+@app.command("create-order-intent")
+def create_order_intent(
+    trade_plan_id: str = typer.Option(..., "--trade-plan-id"),
+    symbol: str = typer.Option(..., "--symbol"),
+    side: OrderSide = typer.Option(..., "--side"),
+    order_type: OrderType = typer.Option(..., "--order-type"),
+    quantity: str = typer.Option(..., "--quantity"),
+    limit_price: str | None = typer.Option(None, "--limit-price"),
+    stop_price: str | None = typer.Option(None, "--stop-price"),
+    notes: str | None = typer.Option(None, "--notes"),
+) -> None:
+    """Create and persist an order intent from an approved trade plan."""
+    repositories = _repositories()
+    order_intent = _run_service(
+        lambda: CreateOrderIntentService(
+            plan_repository=repositories.plans,
+            order_intent_repository=repositories.order_intents,
+            evaluation_repository=repositories.evaluations,
+            lifecycle_event_repository=repositories.lifecycle_events,
+        ).create_order_intent(
+            trade_plan_id=_parse_uuid(trade_plan_id),
+            symbol=symbol,
+            side=side,
+            order_type=order_type,
+            quantity=_parse_decimal(quantity),
+            limit_price=None if limit_price is None else _parse_decimal(limit_price),
+            stop_price=None if stop_price is None else _parse_decimal(stop_price),
+            notes=notes,
+        )
+    )
+    _echo_order_intent(order_intent)
+
+
+@app.command("open-position")
+def open_position(trade_plan_id: str) -> None:
+    """Open a position from an approved trade plan."""
+    repositories = _repositories()
+    position = _run_service(
+        lambda: PositionService(
+            plan_repository=repositories.plans,
+            idea_repository=repositories.ideas,
+            position_repository=repositories.positions,
+            lifecycle_event_repository=repositories.lifecycle_events,
+        ).open_position_from_plan(_parse_uuid(trade_plan_id))
+    )
+    typer.echo(f"position_id: {position.id}")
+    typer.echo(f"trade_plan_id: {position.trade_plan_id}")
+    typer.echo(f"lifecycle_state: {position.lifecycle_state}")
+    typer.echo(f"current_quantity: {position.current_quantity}")
+
+
+@app.command("record-fill")
+def record_fill(
+    position_id: str = typer.Option(..., "--position-id"),
+    side: str = typer.Option(..., "--side"),
+    quantity: str = typer.Option(..., "--quantity"),
+    price: str = typer.Option(..., "--price"),
+    notes: str | None = typer.Option(None, "--notes"),
+    order_intent_id: str | None = typer.Option(None, "--order-intent-id"),
+) -> None:
+    """Record a manual fill for one position."""
+    repositories = _repositories()
+    fill = _run_service(
+        lambda: FillService(
+            position_repository=repositories.positions,
+            fill_repository=repositories.fills,
+            lifecycle_event_repository=repositories.lifecycle_events,
+            order_intent_repository=repositories.order_intents,
+        ).record_manual_fill(
+            position_id=_parse_uuid(position_id),
+            side=side,
+            quantity=_parse_decimal(quantity),
+            price=_parse_decimal(price),
+            notes=notes,
+            order_intent_id=None
+            if order_intent_id is None
+            else _parse_uuid(order_intent_id),
+        )
+    )
+    position = repositories.positions.get(fill.position_id)
+    if position is None:
+        raise RuntimeError("Position disappeared after fill persistence.")
+    typer.echo(f"fill_id: {fill.id}")
+    typer.echo(f"position_id: {fill.position_id}")
+    typer.echo(f"side: {fill.side}")
+    typer.echo(f"quantity: {fill.quantity}")
+    typer.echo(f"price: {fill.price}")
+    typer.echo(
+        "order_intent_id: "
+        f"{'' if fill.order_intent_id is None else fill.order_intent_id}"
+    )
+    typer.echo(f"position_state: {position.lifecycle_state}")
+    typer.echo(f"open_quantity: {position.current_quantity}")
+
+
+@app.command("create-trade-review")
+def create_trade_review(
+    position_id: str = typer.Option(..., "--position-id"),
+    summary: str = typer.Option(..., "--summary"),
+    what_went_well: str = typer.Option(..., "--what-went-well"),
+    what_went_poorly: str = typer.Option(..., "--what-went-poorly"),
+    lessons_learned: list[str] = typer.Option(
+        None,
+        "--lesson",
+        help="Repeat to add multiple lessons learned.",
+    ),
+    follow_up_actions: list[str] = typer.Option(
+        None,
+        "--follow-up-action",
+        help="Repeat to add multiple follow-up actions.",
+    ),
+    rating: int | None = typer.Option(None, "--rating"),
+) -> None:
+    """Create one immutable review for a closed position."""
+    repositories = _repositories()
+    review = _run_service(
+        lambda: ReviewService(
+            position_repository=repositories.positions,
+            review_repository=repositories.reviews,
+            lifecycle_event_repository=repositories.lifecycle_events,
+        ).create_trade_review(
+            position_id=_parse_uuid(position_id),
+            summary=summary,
+            what_went_well=what_went_well,
+            what_went_poorly=what_went_poorly,
+            lessons_learned=lessons_learned,
+            follow_up_actions=follow_up_actions,
+            rating=rating,
+        )
+    )
+    _echo_trade_review(review)
+
+
+@app.command("list-trade-ideas")
+def list_trade_ideas() -> None:
+    """List persisted trade ideas from the local JSON store."""
+    ideas = _trade_query_service().list_trade_ideas()
+    if not ideas:
+        typer.echo("No trade ideas found.")
+        return
+
+    typer.echo("TRADE_IDEA_ID | STATUS | PURPOSE | DIRECTION | HORIZON | CREATED_AT")
+    for idea in ideas:
+        typer.echo(
+            " | ".join(
+                [
+                    str(idea.id),
+                    idea.status,
+                    idea.purpose,
+                    idea.direction,
+                    idea.horizon,
+                    idea.created_at.isoformat(),
+                ]
+            )
+        )
+
+
+@app.command("list-trade-plans")
+def list_trade_plans() -> None:
+    """List persisted trade plans from the local JSON store."""
+    plans = _trade_query_service().list_trade_plans()
+    if not plans:
+        typer.echo("No trade plans found.")
+        return
+
+    typer.echo(
+        "TRADE_PLAN_ID | APPROVAL_STATE | TRADE_IDEA_ID | TRADE_THESIS_ID | CREATED_AT"
+    )
+    for plan in plans:
+        typer.echo(
+            " | ".join(
+                [
+                    str(plan.id),
+                    plan.approval_state,
+                    str(plan.trade_idea_id),
+                    str(plan.trade_thesis_id),
+                    plan.created_at.isoformat(),
+                ]
+            )
+        )
+
+
+@app.command("show-trade-plan")
+def show_trade_plan(trade_plan_id: str) -> None:
+    """Show a persisted trade plan with linked upstream and downstream records."""
+    query_service = _trade_query_service()
+    detail = _run_service(
+        lambda: query_service.get_trade_plan_detail(_parse_uuid(trade_plan_id))
+    )
+    plan = detail.trade_plan
+
+    typer.echo(f"Trade plan {plan.id}")
+    typer.echo(f"approval_state: {plan.approval_state}")
+    typer.echo(f"trade_idea_id: {plan.trade_idea_id}")
+    typer.echo(f"trade_thesis_id: {plan.trade_thesis_id}")
+    typer.echo(f"entry_criteria: {plan.entry_criteria}")
+    typer.echo(f"invalidation: {plan.invalidation}")
+    typer.echo(f"targets: {_format_string_list(plan.targets)}")
+    typer.echo(f"risk_model: {_format_optional_text(plan.risk_model)}")
+    typer.echo(
+        f"sizing_assumptions: {_format_optional_text(plan.sizing_assumptions)}"
+    )
+    typer.echo(f"created_at: {plan.created_at.isoformat()}")
+    typer.echo("")
+    typer.echo("Trade idea")
+    typer.echo(f"id: {detail.trade_idea.id}")
+    typer.echo(f"purpose: {detail.trade_idea.purpose}")
+    typer.echo(f"direction: {detail.trade_idea.direction}")
+    typer.echo(f"horizon: {detail.trade_idea.horizon}")
+    typer.echo("")
+    typer.echo("Trade thesis")
+    typer.echo(f"id: {detail.trade_thesis.id}")
+    typer.echo(f"reasoning: {detail.trade_thesis.reasoning}")
+    typer.echo(
+        "supporting_evidence: "
+        f"{_format_string_list(detail.trade_thesis.supporting_evidence)}"
+    )
+    typer.echo(f"risks: {_format_string_list(detail.trade_thesis.risks)}")
+    typer.echo(
+        "disconfirming_signals: "
+        f"{_format_string_list(detail.trade_thesis.disconfirming_signals)}"
+    )
+    typer.echo("")
+    typer.echo("Rule evaluations")
+    if detail.rule_evaluations:
+        for evaluation in detail.rule_evaluations:
+            typer.echo(
+                f"{evaluation.evaluated_at.isoformat()} | passed={evaluation.passed} | "
+                f"rule_id={evaluation.rule_id} | details={evaluation.details or ''}"
+            )
+    else:
+        typer.echo("No rule evaluations found.")
+    typer.echo("")
+    typer.echo("Order intents")
+    if detail.order_intents:
+        for order_intent in detail.order_intents:
+            typer.echo(
+                f"{order_intent.created_at.isoformat()} | {order_intent.side.value} | "
+                f"{order_intent.order_type.value} | {order_intent.quantity} | "
+                f"{order_intent.symbol} | status={order_intent.status.value} | "
+                f"id={order_intent.id}"
+            )
+    else:
+        typer.echo("No order intents found.")
+    typer.echo("")
+    typer.echo("Positions")
+    if detail.positions:
+        for position in detail.positions:
+            typer.echo(
+                f"{position.opened_at.isoformat()} | {position.lifecycle_state} | "
+                f"id={position.id} | current_quantity={position.current_quantity}"
+            )
+    else:
+        typer.echo("No positions found.")
+
+
+@app.command("list-trade-reviews")
+def list_trade_reviews() -> None:
+    """List persisted trade reviews from the local JSON store."""
+    reviews = _review_query_service().list_trade_reviews()
+    if not reviews:
+        typer.echo("No trade reviews found.")
+        return
+
+    typer.echo(
+        "TRADE_REVIEW_ID | POSITION_ID | TRADE_PLAN_ID | PURPOSE | DIRECTION | "
+        "RATING | SUMMARY | REVIEWED_AT"
+    )
+    for item in reviews:
+        typer.echo(
+            " | ".join(
+                [
+                    str(item.review.id),
+                    str(item.position.id),
+                    str(item.trade_plan.id),
+                    item.trade_idea.purpose,
+                    item.trade_idea.direction,
+                    "" if item.review.rating is None else str(item.review.rating),
+                    item.review.summary,
+                    item.review.reviewed_at.isoformat(),
+                ]
+            )
+        )
+
+
+@app.command("show-trade-review")
+def show_trade_review(trade_review_id: str) -> None:
+    """Show a persisted trade review with linked trade context."""
+    detail = _run_service(
+        lambda: _review_query_service().get_trade_review_detail(
+            _parse_uuid(trade_review_id)
+        )
+    )
+    review = detail.review
+
+    typer.echo(f"Trade review {review.id}")
+    typer.echo(f"position_id: {review.position_id}")
+    typer.echo(f"trade_plan_id: {detail.trade_plan.id}")
+    typer.echo(f"rating: {'' if review.rating is None else review.rating}")
+    typer.echo(f"reviewed_at: {review.reviewed_at.isoformat()}")
+    typer.echo(f"summary: {review.summary}")
+    typer.echo(f"what_went_well: {review.what_went_well}")
+    typer.echo(f"what_went_poorly: {review.what_went_poorly}")
+    typer.echo(f"lessons_learned: {_format_string_list(review.lessons_learned)}")
+    typer.echo(
+        f"follow_up_actions: {_format_string_list(review.follow_up_actions)}"
+    )
+    typer.echo("")
+    typer.echo("Position")
+    typer.echo(f"id: {detail.position.id}")
+    typer.echo(f"state: {detail.position.lifecycle_state}")
+    typer.echo(f"realized_pnl: {_format_optional_decimal(detail.realized_pnl)}")
+    typer.echo("")
+    typer.echo("Trade plan")
+    typer.echo(f"id: {detail.trade_plan.id}")
+    typer.echo(f"approval_state: {detail.trade_plan.approval_state}")
+    typer.echo("")
+    typer.echo("Trade idea")
+    typer.echo(f"id: {detail.trade_idea.id}")
+    typer.echo(f"purpose: {detail.trade_idea.purpose}")
+    typer.echo(f"direction: {detail.trade_idea.direction}")
+    typer.echo(f"horizon: {detail.trade_idea.horizon}")
 
 
 @app.command("list-positions")
@@ -195,8 +689,11 @@ def list_positions(
         typer.echo("No positions found.")
         return
 
-    typer.echo("POSITION_ID | STATE | PURPOSE | QTY | OPENED_AT | CLOSED_AT")
+    typer.echo(
+        "POSITION_ID | STATE | PURPOSE | QTY | REALIZED_PNL | OPENED_AT | CLOSED_AT"
+    )
     for position in positions:
+        detail = query_service.get_position_detail(position.id)
         typer.echo(
             " | ".join(
                 [
@@ -204,6 +701,7 @@ def list_positions(
                     position.lifecycle_state,
                     position.purpose,
                     str(position.current_quantity),
+                    _format_optional_decimal(detail.realized_pnl),
                     position.opened_at.isoformat(),
                     _format_optional_datetime(position.closed_at),
                 ]
@@ -215,10 +713,7 @@ def list_positions(
 def show_position(position_id: str) -> None:
     """Show a persisted position with linked plan, idea, fills, and review."""
     query_service = _position_query_service()
-    try:
-        detail = query_service.get_position_detail(_parse_uuid(position_id))
-    except ValueError as exc:
-        raise typer.BadParameter(str(exc)) from exc
+    detail = _run_service(lambda: query_service.get_position_detail(_parse_uuid(position_id)))
     position = detail.position
     plan = detail.trade_plan
     idea = detail.trade_idea
@@ -230,6 +725,7 @@ def show_position(position_id: str) -> None:
     typer.echo(f"trade_plan_id: {position.trade_plan_id}")
     typer.echo(f"current_quantity: {position.current_quantity}")
     typer.echo(f"average_entry_price: {position.average_entry_price}")
+    typer.echo(f"realized_pnl: {_format_optional_decimal(detail.realized_pnl)}")
     typer.echo(f"opened_at: {position.opened_at.isoformat()}")
     typer.echo(f"closed_at: {_format_optional_datetime(position.closed_at)}")
     typer.echo("")
@@ -246,6 +742,24 @@ def show_position(position_id: str) -> None:
     typer.echo(f"direction: {idea.direction}")
     typer.echo(f"horizon: {idea.horizon}")
     typer.echo(f"instrument_id: {idea.instrument_id}")
+    typer.echo("")
+    typer.echo("Order intents")
+    if detail.order_intents:
+        for order_intent in detail.order_intents:
+            prices: list[str] = []
+            if order_intent.limit_price is not None:
+                prices.append(f"limit={order_intent.limit_price}")
+            if order_intent.stop_price is not None:
+                prices.append(f"stop={order_intent.stop_price}")
+            price_text = "" if not prices else " | " + " | ".join(prices)
+            typer.echo(
+                f"{order_intent.created_at.isoformat()} | {order_intent.side.value} | "
+                f"{order_intent.order_type.value} | {order_intent.quantity} | "
+                f"{order_intent.symbol} | status={order_intent.status.value} | "
+                f"id={order_intent.id}{price_text}"
+            )
+    else:
+        typer.echo("No order intents found.")
     typer.echo("")
     typer.echo("Fills")
     if detail.fills:
@@ -271,10 +785,7 @@ def show_position(position_id: str) -> None:
 def show_position_timeline(position_id: str) -> None:
     """Show lifecycle events for a persisted position."""
     query_service = _position_query_service()
-    try:
-        events = query_service.get_position_timeline(_parse_uuid(position_id))
-    except ValueError as exc:
-        raise typer.BadParameter(str(exc)) from exc
+    events = _run_service(lambda: query_service.get_position_timeline(_parse_uuid(position_id)))
     if not events:
         typer.echo("No lifecycle events found.")
         return
@@ -293,6 +804,11 @@ def show_position_timeline(position_id: str) -> None:
         )
 
 
+def _repositories() -> JsonRepositorySet:
+    """Build JSON repositories over the configured store path."""
+    return build_json_repositories(_json_store_path())
+
+
 def _json_store_path() -> Path:
     """Return the configured local JSON persistence path."""
     configured = os.environ.get("TRADING_SYSTEM_STORE_PATH")
@@ -303,14 +819,55 @@ def _json_store_path() -> Path:
 
 def _position_query_service() -> PositionQueryService:
     """Build a position query service from JSON repositories."""
-    repositories = build_json_repositories(_json_store_path())
+    repositories = _repositories()
     return PositionQueryService(
         position_repository=repositories.positions,
         plan_repository=repositories.plans,
         idea_repository=repositories.ideas,
+        order_intent_repository=repositories.order_intents,
         fill_repository=repositories.fills,
         review_repository=repositories.reviews,
         lifecycle_event_repository=repositories.lifecycle_events,
+    )
+
+
+def _trade_query_service() -> TradeQueryService:
+    """Build a trade query service from JSON repositories."""
+    repositories = _repositories()
+    return TradeQueryService(
+        idea_repository=repositories.ideas,
+        thesis_repository=repositories.theses,
+        plan_repository=repositories.plans,
+        evaluation_repository=repositories.evaluations,
+        order_intent_repository=repositories.order_intents,
+        position_repository=repositories.positions,
+    )
+
+
+def _review_query_service() -> ReviewQueryService:
+    """Build a trade review query service from JSON repositories."""
+    repositories = _repositories()
+    return ReviewQueryService(
+        review_repository=repositories.reviews,
+        position_repository=repositories.positions,
+        plan_repository=repositories.plans,
+        idea_repository=repositories.ideas,
+        fill_repository=repositories.fills,
+    )
+
+
+def _rule_service(repositories: JsonRepositorySet) -> RuleService:
+    """Build the deterministic rule service used by CLI workflows."""
+    rule = Rule(
+        code="risk_defined",
+        name="Risk defined",
+        description="Trade plans must define risk before execution.",
+    )
+    return RuleService(
+        plan_repository=repositories.plans,
+        evaluation_repository=repositories.evaluations,
+        violation_repository=repositories.violations,
+        rules=[(rule, RiskDefinedRule(rule))],
     )
 
 
@@ -322,9 +879,70 @@ def _parse_uuid(value: str) -> UUID:
         raise typer.BadParameter("must be a valid UUID") from exc
 
 
+def _parse_decimal(value: str) -> Decimal:
+    """Parse a CLI decimal argument with a clear Typer error."""
+    try:
+        return Decimal(value)
+    except Exception as exc:
+        raise typer.BadParameter("must be a valid decimal") from exc
+
+
 def _format_optional_datetime(value: datetime | None) -> str:
     """Format optional datetime values for CLI output."""
     return "" if value is None else value.isoformat()
+
+
+def _format_optional_decimal(value: Decimal | None) -> str:
+    """Format optional decimal values for CLI output."""
+    return "N/A" if value is None else str(value)
+
+
+def _format_optional_text(value: str | None) -> str:
+    """Format optional text values for CLI output."""
+    return "" if value is None else value
+
+
+def _format_string_list(values: list[str]) -> str:
+    """Format repeated string fields for CLI output."""
+    if not values:
+        return ""
+    return "; ".join(values)
+
+
+def _run_service(func):
+    """Run a service call and translate domain errors into CLI output."""
+    try:
+        return func()
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+
+
+def _echo_order_intent(order_intent: OrderIntent) -> None:
+    """Print a compact order intent result for command chaining."""
+    typer.echo(f"order_intent_id: {order_intent.id}")
+    typer.echo(f"trade_plan_id: {order_intent.trade_plan_id}")
+    typer.echo(f"status: {order_intent.status.value}")
+    typer.echo(f"symbol: {order_intent.symbol}")
+    typer.echo(f"side: {order_intent.side.value}")
+    typer.echo(f"order_type: {order_intent.order_type.value}")
+    typer.echo(f"quantity: {order_intent.quantity}")
+    typer.echo(f"limit_price: {_format_optional_decimal(order_intent.limit_price)}")
+    typer.echo(f"stop_price: {_format_optional_decimal(order_intent.stop_price)}")
+
+
+def _echo_trade_review(review: TradeReview) -> None:
+    """Print a compact trade review result for command chaining."""
+    typer.echo(f"trade_review_id: {review.id}")
+    typer.echo(f"position_id: {review.position_id}")
+    typer.echo(f"rating: {'' if review.rating is None else review.rating}")
+    typer.echo(f"summary: {review.summary}")
+    typer.echo(
+        f"lessons_learned_count: {len(review.lessons_learned)}"
+    )
+    typer.echo(
+        f"follow_up_actions_count: {len(review.follow_up_actions)}"
+    )
 
 
 def main() -> None:
