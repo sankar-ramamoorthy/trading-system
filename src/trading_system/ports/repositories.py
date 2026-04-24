@@ -8,6 +8,7 @@ from trading_system.domain.rules.violation import Violation
 from trading_system.domain.trading.fill import Fill
 from trading_system.domain.trading.idea import TradeIdea
 from trading_system.domain.trading.lifecycle import LifecycleEvent
+from trading_system.domain.trading.order_intent import OrderIntent
 from trading_system.domain.trading.plan import TradePlan
 from trading_system.domain.trading.position import Position
 from trading_system.domain.trading.review import TradeReview
@@ -23,6 +24,10 @@ class TradeIdeaRepository(Protocol):
 
     def get(self, idea_id: UUID) -> TradeIdea | None:
         """Return a trade idea by identity."""
+        ...
+
+    def list_all(self) -> list[TradeIdea]:
+        """Return all trade ideas."""
         ...
 
 
@@ -51,6 +56,10 @@ class TradePlanRepository(Protocol):
 
     def update(self, plan: TradePlan) -> None:
         """Persist changes to a trade plan."""
+        ...
+
+    def list_all(self) -> list[TradePlan]:
+        """Return all trade plans."""
         ...
 
 
@@ -86,6 +95,22 @@ class FillRepository(Protocol):
         ...
 
 
+class OrderIntentRepository(Protocol):
+    """Persistence boundary for execution intent records."""
+
+    def add(self, order_intent: OrderIntent) -> None:
+        """Persist an order intent."""
+        ...
+
+    def get(self, order_intent_id: UUID) -> OrderIntent | None:
+        """Return an order intent by identity."""
+        ...
+
+    def list_by_trade_plan_id(self, trade_plan_id: UUID) -> list[OrderIntent]:
+        """Return order intents linked to a trade plan."""
+        ...
+
+
 class LifecycleEventRepository(Protocol):
     """Persistence boundary for auditable lifecycle events."""
 
@@ -109,8 +134,16 @@ class TradeReviewRepository(Protocol):
         """Persist a trade review."""
         ...
 
+    def get(self, review_id: UUID) -> TradeReview | None:
+        """Return a trade review by identity."""
+        ...
+
     def get_by_position_id(self, position_id: UUID) -> TradeReview | None:
         """Return the review for a position, if one exists."""
+        ...
+
+    def list_all(self) -> list[TradeReview]:
+        """Return all trade reviews."""
         ...
 
 
@@ -119,6 +152,14 @@ class RuleEvaluationRepository(Protocol):
 
     def add(self, evaluation: RuleEvaluation) -> None:
         """Persist a rule evaluation."""
+        ...
+
+    def list_by_entity(
+        self,
+        entity_type: str,
+        entity_id: UUID,
+    ) -> list[RuleEvaluation]:
+        """Return persisted evaluations for one domain entity."""
         ...
 
 

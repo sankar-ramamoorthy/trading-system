@@ -4,6 +4,7 @@ from trading_system.domain.trading.fill import Fill
 from trading_system.domain.trading.idea import TradeIdea
 from trading_system.domain.trading.instrument import Instrument
 from trading_system.domain.trading.lifecycle import LifecycleEvent
+from trading_system.domain.trading.order_intent import OrderIntent
 from trading_system.domain.trading.plan import TradePlan
 from trading_system.domain.trading.position import Position
 from trading_system.domain.trading.review import TradeReview
@@ -13,6 +14,7 @@ __all__ = [
     "Fill",
     "Instrument",
     "LifecycleEvent",
+    "OrderIntent",
     "Position",
     "TradeIdea",
     "TradePlan",

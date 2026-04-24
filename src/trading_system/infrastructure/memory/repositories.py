@@ -7,6 +7,7 @@ from trading_system.domain.rules.violation import Violation
 from trading_system.domain.trading.fill import Fill
 from trading_system.domain.trading.idea import TradeIdea
 from trading_system.domain.trading.lifecycle import LifecycleEvent
+from trading_system.domain.trading.order_intent import OrderIntent
 from trading_system.domain.trading.plan import TradePlan
 from trading_system.domain.trading.position import Position
 from trading_system.domain.trading.review import TradeReview
@@ -26,6 +27,10 @@ class InMemoryTradeIdeaRepository:
     def get(self, idea_id: UUID) -> TradeIdea | None:
         """Return a trade idea by identity."""
         return self.items.get(idea_id)
+
+    def list_all(self) -> list[TradeIdea]:
+        """Return all trade ideas."""
+        return list(self.items.values())
 
 
 class InMemoryTradeThesisRepository:
@@ -60,6 +65,10 @@ class InMemoryTradePlanRepository:
     def update(self, plan: TradePlan) -> None:
         """Persist changes to a trade plan."""
         self.items[plan.id] = plan
+
+    def list_all(self) -> list[TradePlan]:
+        """Return all trade plans."""
+        return list(self.items.values())
 
 
 class InMemoryPositionRepository:
@@ -100,6 +109,29 @@ class InMemoryFillRepository:
         return [fill for fill in self.items.values() if fill.position_id == position_id]
 
 
+class InMemoryOrderIntentRepository:
+    """Stores order intents in memory for local workflows."""
+
+    def __init__(self) -> None:
+        self.items: dict[UUID, OrderIntent] = {}
+
+    def add(self, order_intent: OrderIntent) -> None:
+        """Persist an order intent."""
+        self.items[order_intent.id] = order_intent
+
+    def get(self, order_intent_id: UUID) -> OrderIntent | None:
+        """Return an order intent by identity."""
+        return self.items.get(order_intent_id)
+
+    def list_by_trade_plan_id(self, trade_plan_id: UUID) -> list[OrderIntent]:
+        """Return order intents linked to a trade plan."""
+        return [
+            order_intent
+            for order_intent in self.items.values()
+            if order_intent.trade_plan_id == trade_plan_id
+        ]
+
+
 class InMemoryLifecycleEventRepository:
     """Stores lifecycle events in memory for local workflows."""
 
@@ -116,11 +148,14 @@ class InMemoryLifecycleEventRepository:
         entity_id: UUID,
     ) -> list[LifecycleEvent]:
         """Return lifecycle events for an entity."""
-        return [
-            event
-            for event in self.items.values()
-            if event.entity_type == entity_type and event.entity_id == entity_id
-        ]
+        return sorted(
+            [
+                event
+                for event in self.items.values()
+                if event.entity_type == entity_type and event.entity_id == entity_id
+            ],
+            key=lambda event: event.occurred_at,
+        )
 
 
 class InMemoryTradeReviewRepository:
@@ -133,12 +168,20 @@ class InMemoryTradeReviewRepository:
         """Persist a trade review."""
         self.items[review.id] = review
 
+    def get(self, review_id: UUID) -> TradeReview | None:
+        """Return a trade review by identity."""
+        return self.items.get(review_id)
+
     def get_by_position_id(self, position_id: UUID) -> TradeReview | None:
         """Return the review for a position, if one exists."""
         for review in self.items.values():
             if review.position_id == position_id:
                 return review
         return None
+
+    def list_all(self) -> list[TradeReview]:
+        """Return all trade reviews."""
+        return list(self.items.values())
 
 
 class InMemoryRuleEvaluationRepository:
@@ -150,6 +193,18 @@ class InMemoryRuleEvaluationRepository:
     def add(self, evaluation: RuleEvaluation) -> None:
         """Persist a rule evaluation."""
         self.items[evaluation.id] = evaluation
+
+    def list_by_entity(
+        self,
+        entity_type: str,
+        entity_id: UUID,
+    ) -> list[RuleEvaluation]:
+        """Return persisted evaluations for one domain entity."""
+        return [
+            evaluation
+            for evaluation in self.items.values()
+            if evaluation.entity_type == entity_type and evaluation.entity_id == entity_id
+        ]
 
 
 class InMemoryViolationRepository:

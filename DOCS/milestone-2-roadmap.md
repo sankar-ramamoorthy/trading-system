@@ -1,7 +1,7 @@
 ---
 title: Milestone 2 Roadmap
-version: v1
-date: 2026-04-20
+version: v2
+date: 2026-04-24
 tags: [milestone-2, roadmap, trading-system]
 ---
 
@@ -9,90 +9,98 @@ tags: [milestone-2, roadmap, trading-system]
 
 ## Overview
 
-Milestone 2 builds on the completed Milestone 1 MVP.
+Milestone 2 builds on the completed Milestone 1 MVP and is already partially implemented in the repository.
 
 The goal is to make the system more practical for real use while preserving the domain boundaries established in Milestone 1.
 
-Milestone 2 should focus on:
+Milestone 2 focuses on:
 
 - durable persistence
-- retrieving prior trades and positions
+- retrieval of prior trades and positions
 - clearer separation between intended execution and actual execution
 - basic financial visibility
-- CLI usability improvements
+- practical CLI usability
 
 Milestone 2 should not expand into broker integration, market data ingestion, AI systems, dashboards, or broad analytics platforms.
 
 ## Guiding Principles
 
 - Extend the domain without distorting it.
-- Preserve separation of intent, execution, outcome, and review.
+- Preserve separation of intent, execution intent, execution fact, outcome, and review.
 - Keep the modular monolith architecture.
 - Prefer simple vertical improvements over broad infrastructure.
 - Add external integrations only after the internal model is stable.
 
-## Candidate Work Areas
+## Observed Progress
+
+Verified against the application repo and tests on 2026-04-24:
+
+- durable local JSON persistence is implemented
+- persisted retrieval commands for positions, position detail, and position timeline are implemented
+- narrow `OrderIntent` support is implemented between approved `TradePlan` and manual `Fill`
+- minimal realized P&L is implemented on the read side for closed positions
+- practical write-side CLI commands now exist for the core lifecycle
+
+The main remaining Milestone 2 work is polish, documentation accuracy, and any explicitly scoped follow-on read or usability improvements.
+
+## Work Areas
 
 ### Durable Persistence
 
-Replace in-memory demo repositories with durable persistence.
+Current state:
 
-Issue 9 starts with local JSON file persistence for the existing demo workflow.
-SQLite, Postgres, and migrations remain later options when the storage needs justify
-database behavior.
+- implemented first as local JSON persistence in `.trading-system/store.json`
+- persisted workflow includes `TradeIdea`, `TradeThesis`, `TradePlan`, `Position`, `Fill`, `TradeReview`, `LifecycleEvent`, `RuleEvaluation`, `Violation`, and `OrderIntent`
+- repository interfaces remain narrow and stable
 
-Initial scope should include:
+Later options when justified:
 
-- `TradeIdea`
-- `TradeThesis`
-- `TradePlan`
-- `Position`
-- `Fill`
-- `TradeReview`
-- `LifecycleEvent`
-
-Repository interfaces should remain stable where possible.
+- SQLite
+- Postgres
+- migrations
 
 ### Query And Retrieval Workflows
 
-Add simple read workflows for past trades and positions.
+Implemented commands:
 
-Potential CLI commands:
+- `list-trade-ideas`
+- `list-trade-plans`
+- `show-trade-plan`
+- `list-positions`
+- `show-position`
+- `show-position-timeline`
 
-- list positions
-- show position
-- list closed positions
-- show associated fills and review
-
-Issue 10 starts these workflows with read-only JSON-backed CLI commands for
-listing positions, showing a position, and showing a position lifecycle timeline.
+Current read-side views expose linked plans, ideas, theses, fills, reviews, order intents, and realized P&L where applicable.
 
 ### OrderIntent
 
-Introduce `OrderIntent` as the bridge between planned execution and actual fills.
+Current state:
 
-This preserves the distinction between:
-
-- what the trader intended to execute
-- what actually filled
+- implemented narrowly as the bridge between approved `TradePlan` and manual `Fill`
+- preserves the distinction between intended execution and actual execution
+- remains a system intent record, not a broker-order model
+- fills can optionally reference an `OrderIntent`
 
 Broker integration remains out of scope for this step.
 
 ### Basic P&L
 
-Add minimal realized P&L for closed positions based on fills.
+Current state:
 
-This should stay simple:
+- implemented narrowly on the read side for closed positions based on persisted fills
+- not persisted as a canonical field
+- intentionally simple and auditable
 
-- no tax lots
-- no commissions or fees initially
-- no advanced performance reporting
+Still deferred:
+
+- tax lots
+- commissions and fees
+- portfolio aggregation
+- advanced performance reporting
 
 ### Lifecycle Timeline
 
-Expose lifecycle events in a useful ordered view.
-
-Potential CLI command:
+Implemented command:
 
 ```powershell
 uv run trading-system show-position-timeline <position-id>
@@ -100,18 +108,19 @@ uv run trading-system show-position-timeline <position-id>
 
 ### CLI Usability
 
-Move beyond demo-only usage by adding simple commands for the core lifecycle.
+Implemented core workflow commands:
 
-Potential commands:
+- `create-trade-idea`
+- `create-trade-thesis`
+- `create-trade-plan`
+- `approve-trade-plan`
+- `evaluate-trade-plan-rules`
+- `create-order-intent`
+- `open-position`
+- `record-fill`
+- `create-trade-review`
 
-- create trade idea
-- create trade thesis
-- create trade plan
-- approve plan
-- evaluate rules
-- open position
-- record fill
-- create review
+The demo command remains useful as a smoke path, but Milestone 2 is no longer demo-only.
 
 ## Explicitly Deferred
 
@@ -137,8 +146,16 @@ Milestone 2 is complete when:
 - CLI supports practical manual usage
 - documentation reflects actual behavior
 
+Most of these conditions are now implemented in code. Documentation alignment was one of the remaining visible gaps in the application repo as of 2026-04-24.
+
 ## Final Note
 
 Milestone 2 should make the MVP practical without weakening the domain model.
 
-The likely next meaningful step is durable persistence plus `OrderIntent`, not external integrations.
+Milestone 2 is followed by the accepted Milestones 3-5 roadmap documented in `DOCS/milestones-3-to-5-roadmap.md`:
+
+- Milestone 3: Manual Workflow Usability
+- Milestone 4: Read-Only Market Context
+- Milestone 5: Review, Learning, and Local Operations
+
+An exploratory reinforcement-learning note exists in the linked knowledge base, but it is deferred beyond this roadmap and is not the next repository milestone.

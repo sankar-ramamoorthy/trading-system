@@ -7,6 +7,12 @@ import pytest
 
 from trading_system.domain.rules.rule import Rule
 from trading_system.domain.trading.fill import Fill
+from trading_system.domain.trading.order_intent import (
+    OrderIntent,
+    OrderIntentStatus,
+    OrderSide,
+    OrderType,
+)
 from trading_system.infrastructure.json.repositories import (
     JsonPersistenceError,
     build_json_repositories,
@@ -96,6 +102,7 @@ def test_position_fill_review_and_lifecycle_survive_repository_reload(tmp_path) 
         position_repository=repositories.positions,
         fill_repository=repositories.fills,
         lifecycle_event_repository=repositories.lifecycle_events,
+        order_intent_repository=repositories.order_intents,
     )
     entry_fill = fill_service.record_manual_fill(
         position_id=position.id,
@@ -136,6 +143,7 @@ def test_position_fill_review_and_lifecycle_survive_repository_reload(tmp_path) 
     assert persisted_position.closing_fill_id == closing_fill.id
     assert reloaded.fills.get(entry_fill.id) == entry_fill
     assert reloaded.fills.get(closing_fill.id) == closing_fill
+    assert reloaded.reviews.get(review.id) == review
     assert reloaded.reviews.get_by_position_id(position.id) == review
 
     raw_events = reloaded.lifecycle_events._store.read()["lifecycle_events"]
@@ -200,6 +208,7 @@ def test_full_durable_workflow_persists_rule_artifacts(tmp_path) -> None:
         position_repository=repositories.positions,
         fill_repository=repositories.fills,
         lifecycle_event_repository=repositories.lifecycle_events,
+        order_intent_repository=repositories.order_intents,
     )
     fill_service.record_manual_fill(
         position_id=position.id,
@@ -262,6 +271,41 @@ def test_fill_can_round_trip_independently(tmp_path) -> None:
     assert build_json_repositories(store_path).fills.get(fill.id) == fill
 
 
+def test_order_intent_can_round_trip_independently(tmp_path) -> None:
+    """Order intent repository preserves enum and price fields."""
+    store_path = tmp_path / "store.json"
+    order_intent = OrderIntent(
+        trade_plan_id=uuid4(),
+        symbol="AAPL",
+        side=OrderSide.BUY,
+        order_type=OrderType.LIMIT,
+        quantity=Decimal("12.5"),
+        limit_price=Decimal("101.25"),
+        stop_price=Decimal("99.50"),
+        status=OrderIntentStatus.CREATED,
+        notes="Partial entry.",
+    )
+    build_json_repositories(store_path).order_intents.add(order_intent)
+
+    assert build_json_repositories(store_path).order_intents.get(order_intent.id) == order_intent
+
+
+def test_fill_with_order_intent_id_can_round_trip(tmp_path) -> None:
+    """Fill repository preserves optional order-intent linkage."""
+    store_path = tmp_path / "store.json"
+    fill = Fill(
+        position_id=uuid4(),
+        side="buy",
+        quantity=Decimal("12.5"),
+        price=Decimal("101.25"),
+        order_intent_id=uuid4(),
+        notes="Linked fill.",
+    )
+    build_json_repositories(store_path).fills.add(fill)
+
+    assert build_json_repositories(store_path).fills.get(fill.id) == fill
+
+
 def test_json_read_methods_survive_repository_reload(tmp_path) -> None:
     """Read-side repository methods return persisted matching records."""
     store_path = tmp_path / "store.json"
@@ -307,6 +351,7 @@ def test_json_read_methods_survive_repository_reload(tmp_path) -> None:
         position_repository=repositories.positions,
         fill_repository=repositories.fills,
         lifecycle_event_repository=repositories.lifecycle_events,
+        order_intent_repository=repositories.order_intents,
     )
     fill = fill_service.record_manual_fill(
         position_id=position.id,
@@ -333,3 +378,73 @@ def test_json_read_methods_survive_repository_reload(tmp_path) -> None:
         "POSITION_OPENED",
         "FILL_RECORDED",
     ]
+    assert reloaded.evaluations.list_by_entity("TradePlan", approved.id) == []
+
+
+def test_trade_review_repository_list_all_survives_reload(tmp_path) -> None:
+    """Review repository list methods return persisted reviews after reload."""
+    store_path = tmp_path / "store.json"
+    repositories = build_json_repositories(store_path)
+    planning = TradePlanningService(
+        repositories.ideas,
+        repositories.theses,
+        repositories.plans,
+    )
+    idea = planning.create_trade_idea(
+        instrument_id=uuid4(),
+        playbook_id=uuid4(),
+        purpose="swing",
+        direction="long",
+        horizon="days_to_weeks",
+    )
+    thesis = planning.create_trade_thesis(
+        trade_idea_id=idea.id,
+        reasoning="Setup has a clear catalyst.",
+    )
+    plan = planning.create_trade_plan(
+        trade_idea_id=idea.id,
+        trade_thesis_id=thesis.id,
+        entry_criteria="Breakout confirmation.",
+        invalidation="Close below setup low.",
+        risk_model="Defined stop and max loss.",
+    )
+    approved = planning.approve_trade_plan(plan.id)
+    position = PositionService(
+        plan_repository=repositories.plans,
+        idea_repository=repositories.ideas,
+        position_repository=repositories.positions,
+        lifecycle_event_repository=repositories.lifecycle_events,
+    ).open_position_from_plan(approved.id)
+    fill_service = FillService(
+        position_repository=repositories.positions,
+        fill_repository=repositories.fills,
+        lifecycle_event_repository=repositories.lifecycle_events,
+        order_intent_repository=repositories.order_intents,
+    )
+    fill_service.record_manual_fill(
+        position_id=position.id,
+        side="buy",
+        quantity=Decimal("100"),
+        price=Decimal("25.50"),
+    )
+    fill_service.record_manual_fill(
+        position_id=position.id,
+        side="sell",
+        quantity=Decimal("100"),
+        price=Decimal("27"),
+    )
+    review = ReviewService(
+        position_repository=repositories.positions,
+        review_repository=repositories.reviews,
+        lifecycle_event_repository=repositories.lifecycle_events,
+    ).create_trade_review(
+        position_id=position.id,
+        summary="Reloadable review.",
+        what_went_well="Entry was disciplined.",
+        what_went_poorly="Exit timing slipped.",
+    )
+
+    reloaded = build_json_repositories(store_path)
+
+    assert reloaded.reviews.get(review.id) == review
+    assert reloaded.reviews.list_all() == [review]

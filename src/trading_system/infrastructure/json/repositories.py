@@ -15,6 +15,12 @@ from trading_system.domain.rules.violation import Violation
 from trading_system.domain.trading.fill import Fill
 from trading_system.domain.trading.idea import TradeIdea
 from trading_system.domain.trading.lifecycle import LifecycleEvent
+from trading_system.domain.trading.order_intent import (
+    OrderIntent,
+    OrderIntentStatus,
+    OrderSide,
+    OrderType,
+)
 from trading_system.domain.trading.plan import TradePlan
 from trading_system.domain.trading.position import Position
 from trading_system.domain.trading.review import TradeReview
@@ -26,6 +32,7 @@ COLLECTIONS = (
     "trade_theses",
     "trade_plans",
     "positions",
+    "order_intents",
     "fills",
     "trade_reviews",
     "lifecycle_events",
@@ -113,6 +120,13 @@ class JsonTradeIdeaRepository:
         record = self._store.get("trade_ideas", idea_id)
         return None if record is None else _trade_idea_from_record(record)
 
+    def list_all(self) -> list[TradeIdea]:
+        """Return all trade ideas."""
+        return [
+            _trade_idea_from_record(record)
+            for record in self._store.read()["trade_ideas"].values()
+        ]
+
 
 class JsonTradeThesisRepository:
     """Stores trade theses in a local JSON document."""
@@ -148,6 +162,13 @@ class JsonTradePlanRepository:
     def update(self, plan: TradePlan) -> None:
         """Persist changes to a trade plan."""
         self.add(plan)
+
+    def list_all(self) -> list[TradePlan]:
+        """Return all trade plans."""
+        return [
+            _trade_plan_from_record(record)
+            for record in self._store.read()["trade_plans"].values()
+        ]
 
 
 class JsonPositionRepository:
@@ -204,6 +225,37 @@ class JsonFillRepository:
         ]
 
 
+class JsonOrderIntentRepository:
+    """Stores order intents in a local JSON document."""
+
+    def __init__(self, store: JsonStore) -> None:
+        self._store = store
+
+    def add(self, order_intent: OrderIntent) -> None:
+        """Persist an order intent."""
+        self._store.upsert(
+            "order_intents",
+            order_intent.id,
+            _order_intent_to_record(order_intent),
+        )
+
+    def get(self, order_intent_id: UUID) -> OrderIntent | None:
+        """Return an order intent by identity."""
+        record = self._store.get("order_intents", order_intent_id)
+        return None if record is None else _order_intent_from_record(record)
+
+    def list_by_trade_plan_id(self, trade_plan_id: UUID) -> list[OrderIntent]:
+        """Return order intents linked to a trade plan."""
+        return [
+            order_intent
+            for order_intent in (
+                _order_intent_from_record(record)
+                for record in self._store.read()["order_intents"].values()
+            )
+            if order_intent.trade_plan_id == trade_plan_id
+        ]
+
+
 class JsonLifecycleEventRepository:
     """Stores lifecycle events in a local JSON document."""
 
@@ -229,14 +281,17 @@ class JsonLifecycleEventRepository:
         entity_id: UUID,
     ) -> list[LifecycleEvent]:
         """Return lifecycle events for an entity."""
-        return [
-            event
-            for event in (
-                _lifecycle_event_from_record(record)
-                for record in self._store.read()["lifecycle_events"].values()
-            )
-            if event.entity_type == entity_type and event.entity_id == entity_id
-        ]
+        return sorted(
+            [
+                event
+                for event in (
+                    _lifecycle_event_from_record(record)
+                    for record in self._store.read()["lifecycle_events"].values()
+                )
+                if event.entity_type == entity_type and event.entity_id == entity_id
+            ],
+            key=lambda event: event.occurred_at,
+        )
 
 
 class JsonTradeReviewRepository:
@@ -262,6 +317,13 @@ class JsonTradeReviewRepository:
                 return review
         return None
 
+    def list_all(self) -> list[TradeReview]:
+        """Return all trade reviews."""
+        return [
+            _trade_review_from_record(record)
+            for record in self._store.read()["trade_reviews"].values()
+        ]
+
 
 class JsonRuleEvaluationRepository:
     """Stores rule evaluation artifacts in a local JSON document."""
@@ -281,6 +343,21 @@ class JsonRuleEvaluationRepository:
         """Return a rule evaluation by identity."""
         record = self._store.get("rule_evaluations", evaluation_id)
         return None if record is None else _rule_evaluation_from_record(record)
+
+    def list_by_entity(
+        self,
+        entity_type: str,
+        entity_id: UUID,
+    ) -> list[RuleEvaluation]:
+        """Return persisted evaluations for one domain entity."""
+        return [
+            evaluation
+            for evaluation in (
+                _rule_evaluation_from_record(record)
+                for record in self._store.read()["rule_evaluations"].values()
+            )
+            if evaluation.entity_type == entity_type and evaluation.entity_id == entity_id
+        ]
 
 
 class JsonViolationRepository:
@@ -308,6 +385,7 @@ class JsonRepositorySet:
     theses: JsonTradeThesisRepository
     plans: JsonTradePlanRepository
     positions: JsonPositionRepository
+    order_intents: JsonOrderIntentRepository
     fills: JsonFillRepository
     lifecycle_events: JsonLifecycleEventRepository
     reviews: JsonTradeReviewRepository
@@ -325,6 +403,7 @@ def build_json_repositories(path: Path | str) -> JsonRepositorySet:
         theses=JsonTradeThesisRepository(store),
         plans=JsonTradePlanRepository(store),
         positions=JsonPositionRepository(store),
+        order_intents=JsonOrderIntentRepository(store),
         fills=JsonFillRepository(store),
         lifecycle_events=JsonLifecycleEventRepository(store),
         reviews=JsonTradeReviewRepository(store),
@@ -460,6 +539,7 @@ def _fill_to_record(fill: Fill) -> dict[str, Any]:
         "quantity": str(fill.quantity),
         "price": str(fill.price),
         "side": fill.side,
+        "order_intent_id": _optional_uuid_to_string(fill.order_intent_id),
         "filled_at": fill.filled_at.isoformat(),
         "notes": fill.notes,
         "source": fill.source,
@@ -473,9 +553,42 @@ def _fill_from_record(record: dict[str, Any]) -> Fill:
         quantity=Decimal(record["quantity"]),
         price=Decimal(record["price"]),
         side=record["side"],
+        order_intent_id=_optional_uuid(record.get("order_intent_id")),
         filled_at=_datetime(record["filled_at"]),
         notes=record["notes"],
         source=record["source"],
+    )
+
+
+def _order_intent_to_record(order_intent: OrderIntent) -> dict[str, Any]:
+    return {
+        "id": str(order_intent.id),
+        "trade_plan_id": str(order_intent.trade_plan_id),
+        "symbol": order_intent.symbol,
+        "side": order_intent.side.value,
+        "order_type": order_intent.order_type.value,
+        "quantity": str(order_intent.quantity),
+        "limit_price": _optional_decimal_to_string(order_intent.limit_price),
+        "stop_price": _optional_decimal_to_string(order_intent.stop_price),
+        "status": order_intent.status.value,
+        "created_at": order_intent.created_at.isoformat(),
+        "notes": order_intent.notes,
+    }
+
+
+def _order_intent_from_record(record: dict[str, Any]) -> OrderIntent:
+    return OrderIntent(
+        id=UUID(record["id"]),
+        trade_plan_id=UUID(record["trade_plan_id"]),
+        symbol=record["symbol"],
+        side=OrderSide(record["side"]),
+        order_type=OrderType(record["order_type"]),
+        quantity=Decimal(record["quantity"]),
+        limit_price=_optional_decimal(record["limit_price"]),
+        stop_price=_optional_decimal(record["stop_price"]),
+        status=OrderIntentStatus(record["status"]),
+        created_at=_datetime(record["created_at"]),
+        notes=record["notes"],
     )
 
 

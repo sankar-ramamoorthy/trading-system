@@ -1,17 +1,20 @@
 """Read-only workflows for persisted position retrieval."""
 
 from dataclasses import dataclass
+from decimal import Decimal
 from uuid import UUID
 
 from trading_system.domain.trading.fill import Fill
 from trading_system.domain.trading.idea import TradeIdea
 from trading_system.domain.trading.lifecycle import LifecycleEvent
+from trading_system.domain.trading.order_intent import OrderIntent
 from trading_system.domain.trading.plan import TradePlan
 from trading_system.domain.trading.position import Position
 from trading_system.domain.trading.review import TradeReview
 from trading_system.ports.repositories import (
     FillRepository,
     LifecycleEventRepository,
+    OrderIntentRepository,
     PositionRepository,
     TradeIdeaRepository,
     TradePlanRepository,
@@ -26,8 +29,10 @@ class PositionDetail:
     position: Position
     trade_plan: TradePlan
     trade_idea: TradeIdea
+    order_intents: list[OrderIntent]
     fills: list[Fill]
     review: TradeReview | None
+    realized_pnl: Decimal | None
 
 
 class PositionQueryService:
@@ -38,6 +43,7 @@ class PositionQueryService:
         position_repository: PositionRepository,
         plan_repository: TradePlanRepository,
         idea_repository: TradeIdeaRepository,
+        order_intent_repository: OrderIntentRepository,
         fill_repository: FillRepository,
         review_repository: TradeReviewRepository,
         lifecycle_event_repository: LifecycleEventRepository,
@@ -45,6 +51,7 @@ class PositionQueryService:
         self._positions = position_repository
         self._plans = plan_repository
         self._ideas = idea_repository
+        self._order_intents = order_intent_repository
         self._fills = fill_repository
         self._reviews = review_repository
         self._lifecycle_events = lifecycle_event_repository
@@ -78,13 +85,19 @@ class PositionQueryService:
             self._fills.list_by_position_id(position.id),
             key=lambda fill: fill.filled_at,
         )
+        order_intents = sorted(
+            self._order_intents.list_by_trade_plan_id(position.trade_plan_id),
+            key=lambda order_intent: order_intent.created_at,
+        )
         review = self._reviews.get_by_position_id(position.id)
         return PositionDetail(
             position=position,
             trade_plan=plan,
             trade_idea=idea,
+            order_intents=order_intents,
             fills=fills,
             review=review,
+            realized_pnl=_calculate_realized_pnl(position, fills),
         )
 
     def get_position_timeline(self, position_id: UUID) -> list[LifecycleEvent]:
@@ -94,3 +107,22 @@ class PositionQueryService:
 
         events = self._lifecycle_events.list_by_entity("Position", position_id)
         return sorted(events, key=lambda event: event.occurred_at)
+
+
+def _calculate_realized_pnl(
+    position: Position,
+    fills: list[Fill],
+) -> Decimal | None:
+    """Compute realized P&L for the current closed-position execution slice."""
+    if position.lifecycle_state != "closed":
+        return None
+
+    buy_cost = sum(
+        (fill.quantity * fill.price for fill in fills if fill.side.lower() == "buy"),
+        start=Decimal("0"),
+    )
+    sell_proceeds = sum(
+        (fill.quantity * fill.price for fill in fills if fill.side.lower() == "sell"),
+        start=Decimal("0"),
+    )
+    return sell_proceeds - buy_cost
