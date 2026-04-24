@@ -1,6 +1,5 @@
 ---
 
-````md
 # trading-system
 
 A professional-grade personal trading system for structured discretionary trading.
@@ -19,9 +18,9 @@ This project is designed to help a single trader:
 
 This is **not**:
 
-- a trading bot  
-- a black-box system  
-- an automated execution engine  
+- a trading bot
+- a black-box system
+- an automated execution engine
 
 It is a **structured, auditable trading workflow system**.
 
@@ -29,22 +28,23 @@ It is a **structured, auditable trading workflow system**.
 
 ## Core Principles
 
-- **Structured trade representation**  
+- **Structured trade representation**
   Every trade has intent, thesis, and a plan before execution.
 
-- **Deterministic discipline**  
+- **Deterministic discipline**
   Hard rules are explicit, enforceable, and auditable.
 
-- **Separation of concerns**  
-  - intent (TradePlan)  
-  - execution (Fill)  
-  - outcome (Position)  
-  - reflection (TradeReview)
+- **Separation of concerns**
+  - intent (`TradePlan`)
+  - execution intent (`OrderIntent`)
+  - execution fact (`Fill`)
+  - outcome (`Position`)
+  - reflection (`TradeReview`)
 
-- **Canonical domain model**  
-  The system owns trade meaning. External systems will only provide facts.
+- **Canonical domain model**
+  The system owns trade meaning. External systems only provide facts.
 
-- **Incremental evolution**  
+- **Incremental evolution**
   Start simple. Expand only when justified.
 
 ---
@@ -55,84 +55,74 @@ The system follows a **modular monolith** architecture:
 
 ```text
 src/trading_system/
-````
+```
 
 Modules:
 
-* `app/` — CLI entrypoints
-* `domain/` — business logic and entities
-* `services/` — use-case orchestration
-* `rules_engine/` — deterministic rule evaluation
-* `ports/` — interfaces (repositories, UoW)
-* `infrastructure/` — persistence and adapters
+- `app/` - CLI entrypoints
+- `domain/` - business logic and entities
+- `services/` - use-case orchestration
+- `rules_engine/` - deterministic rule evaluation
+- `ports/` - interfaces and persistence boundaries
+- `infrastructure/` - persistence and adapters
 
 See:
 
-* `DOCS/ADR/001-system-architecture.md`
-* `DOCS/ADR/002-rules-vs-context.md`
-* `DOCS/ADR/003-development-and-deployment-strategy.md`
-* `DOCS/ADR/004-canonical-domain-and-source-of-truth.md`
-* `DOCS/ADR/005-mvp-definition-and-boundaries.md`
-* `DOCS/domain-model.md`
-* `DOCS/milestone-1-summary.md`
-* `DOCS/milestone-2-roadmap.md`
+- `DOCS/ADR/001-system-architecture.md`
+- `DOCS/ADR/002-rules-vs-context.md`
+- `DOCS/ADR/003-development-and-deployment-strategy.md`
+- `DOCS/ADR/004-canonical-domain-and-source-of-truth.md`
+- `DOCS/ADR/005-mvp-definition-and-boundaries.md`
+- `DOCS/domain-model.md`
+- `DOCS/milestone-1-summary.md`
+- `DOCS/milestone-2-roadmap.md`
+- `DOCS/milestones-3-to-5-roadmap.md`
+- `DOCS/milestone-4-market-context-design.md`
+- `DOCS/milestone-5-review-learning-and-local-ops-design.md`
 
 ---
 
 ## Core Workflow
 
 ```text
-TradeIdea → TradeThesis → TradePlan → plan approval → RuleEvaluation → Position → Fill → Position close → TradeReview
+TradeIdea -> TradeThesis -> TradePlan -> plan approval -> RuleEvaluation -> OrderIntent -> Position -> Fill -> Position close -> TradeReview
 ```
 
 `LifecycleEvent` records auditable state transitions throughout the lifecycle.
 
 ---
 
-## How to Use This System (Milestone 1)
+## How To Use This System
 
-Milestone 1 provides a **CLI-driven, manual trading workflow**.
+The current repository provides a CLI-driven, manual trading workflow built on the completed Milestone 1 MVP and extended by Milestone 2 implementation work.
 
 ### Typical Flow
 
 1. Define the trade:
-
-   * Create `TradeIdea`
-   * Create `TradeThesis`
-   * Create `TradePlan`
-
+   - create `TradeIdea`
+   - create `TradeThesis`
+   - create `TradePlan`
 2. Validate discipline:
-
-   * Approve the plan
-   * Run rule evaluation
-
+   - approve the plan
+   - run rule evaluation
 3. Execute manually:
-
-   * Open a `Position`
-   * Record `Fill` entries as trades execute
-
+   - create an `OrderIntent` from the approved plan
+   - open a `Position`
+   - record `Fill` entries as trades execute
 4. Let the system track state:
-
-   * Position updates automatically from fills
-   * Position closes automatically when quantity reaches zero
-
+   - position updates automatically from fills
+   - position closes automatically when quantity reaches zero
+   - realized P&L is derived on the read side for closed positions
 5. Review the trade:
+   - create a `TradeReview` after closure
 
-   * Create a `TradeReview` after closure
-
----
-
-### Run the Demo
+### Run The Demo
 
 ```powershell
 uv run trading-system demo-planned-trade
 ```
 
-This runs the full lifecycle:
-
-> plan → approval → rules → position → fills → close → review
-
-The demo now uses local JSON persistence. By default it writes to:
+The demo uses local JSON persistence. By default it writes to:
 
 ```text
 .trading-system/store.json
@@ -140,117 +130,121 @@ The demo now uses local JSON persistence. By default it writes to:
 
 Set `TRADING_SYSTEM_STORE_PATH` to use a different local file.
 
----
+### Core Write Workflow
+
+```powershell
+uv run trading-system create-trade-idea --instrument-id <instrument-id> --playbook-id <playbook-id> --purpose swing --direction long --horizon days_to_weeks
+uv run trading-system create-trade-thesis <trade-idea-id> --reasoning "Setup has a catalyst."
+uv run trading-system create-trade-plan --trade-idea-id <trade-idea-id> --trade-thesis-id <trade-thesis-id> --entry-criteria "Breakout confirmation." --invalidation "Close below setup low." --risk-model "Defined stop and max loss."
+uv run trading-system approve-trade-plan <trade-plan-id>
+uv run trading-system evaluate-trade-plan-rules <trade-plan-id>
+uv run trading-system create-order-intent --trade-plan-id <trade-plan-id> --symbol AAPL --side buy --order-type limit --quantity 100 --limit-price 25.50
+uv run trading-system open-position <trade-plan-id>
+uv run trading-system record-fill --position-id <position-id> --side buy --quantity 100 --price 25.50 --order-intent-id <order-intent-id>
+uv run trading-system record-fill --position-id <position-id> --side sell --quantity 100 --price 27.00
+uv run trading-system create-trade-review --position-id <position-id> --summary "Followed the plan." --what-went-well "Entry was clean." --what-went-poorly "Exit could have been faster."
+```
+
+### Read And Inspect Stored Data
+
+```powershell
+uv run trading-system list-trade-ideas
+uv run trading-system list-trade-plans
+uv run trading-system show-trade-plan <trade-plan-id>
+uv run trading-system list-positions
+uv run trading-system list-positions --state closed
+uv run trading-system show-position <position-id>
+uv run trading-system show-position-timeline <position-id>
+```
 
 ### Important Notes
 
-* Execution is **manual**
-* Prices and fills are **user-entered**
-* No broker or market data integration exists yet
-* The system is currently a **discipline and journaling tool**
+- execution is manual
+- prices and fills are user-entered
+- data persists locally in JSON by default
+- no broker or market data integration exists yet
+- the system is currently a discipline and journaling tool
 
 ---
 
-## What is the MVP?
+## MVP Boundary
 
-The MVP (Minimum Viable Product) is:
+Milestone 1 is the MVP boundary defined by ADR-005.
+
+The MVP is:
 
 > A local, CLI-driven trading system that enforces structured trade intent, captures execution via manual fills, and supports post-trade review with full auditability.
 
 ### MVP Includes
 
-* structured trade definition (idea → thesis → plan)
-* deterministic rule evaluation
-* position creation from approved plans
-* manual fill recording
-* automatic position state tracking
-* automatic position closure
-* one structured trade review per position
-* lifecycle audit trail
+- structured trade definition (`TradeIdea -> TradeThesis -> TradePlan`)
+- deterministic rule evaluation
+- position creation from approved plans
+- manual fill recording
+- automatic position state tracking
+- automatic position closure
+- one structured trade review per position
+- lifecycle audit trail
+
+### MVP Does Not Include
+
+- broker integration
+- automated execution
+- market data feeds
+- advanced P&L analytics
+- dashboards or UI
+- AI-generated insights
+
+The MVP focuses on disciplined, auditable workflow rather than automation.
 
 ---
 
-### MVP Does NOT Include
+## Current Capabilities
 
-* broker integration
-* automated execution
-* market data feeds
-* P&L analytics
-* dashboards or UI
-* AI-generated insights
+Milestone 1 is complete. Milestone 2 is in progress and already implemented in part.
 
-The MVP focuses on:
+Current codebase capabilities include:
 
-> **discipline, structure, and auditability — not automation**
-
----
-
-## Current Capabilities (Milestone 1)
-
-* trade idea → thesis → plan workflow
-* plan approval and rule validation
-* position opening from approved plan
-* manual fill recording
-* execution state tracking
-* automatic position closure
-* lifecycle event audit trail
-* one immutable trade review per position
-* CLI demo covering full lifecycle
+- durable local JSON persistence
+- trade idea, thesis, and plan workflows
+- plan approval and deterministic rule validation
+- narrow `OrderIntent` support between approved plan and manual fill
+- position opening from approved plans
+- manual fill recording with optional `OrderIntent` linkage
+- execution state tracking and automatic position closure
+- basic realized P&L for closed positions on the read side
+- lifecycle event audit trail and position timeline output
+- explicit CLI write commands for the core workflow
+- read-side CLI commands for trade ideas, trade plans, and positions
 
 ---
 
-## What Comes Next (Post-MVP)
+## What Comes Next
 
-Future work will extend the system incrementally.
+Future work should stay incremental and preserve the current domain boundaries. The accepted near-term roadmap after Milestone 2 is:
 
-### Planned Areas
+- **Milestone 3: Manual Workflow Usability**
+  Improve daily manual usage with CLI polish, chaining support, clearer summaries, and removal of avoidable friction.
 
-1. **Persistence**
+- **Milestone 4: Read-Only Market Context**
+  Add external market and context data as read-only support for planning and review without making it canonical trade meaning.
 
-   * local JSON persistence first; SQLite/Postgres remain later options
+- **Milestone 5: Review, Learning, and Local Operations**
+  Expand review tagging, filtering, reporting, export, and local operational robustness without turning the system into a portfolio engine.
 
-2. **OrderIntent**
+See `DOCS/milestones-3-to-5-roadmap.md` for the canonical roadmap and the milestone design notes for Milestones 4 and 5.
 
-   * bridge between plan and fills
+Still explicitly deferred:
 
-3. **Basic P&L**
+- Postgres as the active backend
+- broker integration
+- FastAPI
+- reinforcement learning
+- live automation
+- dashboards
+- AI decision engines
 
-   * realized P&L from fills
-
-4. **Querying**
-
-   * list and inspect past trades
-
-5. **Market Data (read-only)**
-
-   * contextual price information
-
-6. **Broker Integration (later)**
-
-   * adapter only, not source of truth
-
-7. **Review Enhancements**
-
-   * tagging, filtering, learning
-
----
-
-### Still Out of Scope
-
-* real-time trading systems
-* automated strategies
-* dashboards
-* AI decision engines
-
----
-
-## Development Approach
-
-* no code without an explicit issue
-* milestone-driven development
-* domain-first design
-* strict boundary enforcement
-* simple implementations over flexible abstractions
+Reinforcement learning remains exploratory knowledge-base material, not the accepted Milestone 3 plan for this repository.
 
 ---
 
@@ -258,57 +252,37 @@ Future work will extend the system incrementally.
 
 This project uses `uv`.
 
-### Run tests
+Run tests:
 
 ```powershell
 uv run pytest
 ```
 
-### Run CLI
+Run CLI:
 
 ```powershell
 uv run trading-system version
-```
-
-### Run demo
-
-```powershell
-uv run trading-system demo-planned-trade
-```
-
-### Inspect persisted positions
-
-```powershell
-uv run trading-system list-positions
-uv run trading-system list-positions --state closed
-uv run trading-system show-position <position-id>
-uv run trading-system show-position-timeline <position-id>
+uv run trading-system --help
 ```
 
 ---
 
 ## Knowledge Base
 
-This project uses a split knowledge model:
+This project uses a split knowledge model.
 
-### Repository (source of truth for code)
+Repository sources of truth:
 
-* `DOCS/ADR/` — architectural decisions
-* `DOCS/` — domain and system documentation
+- `DOCS/ADR/` for versioned architectural decisions
+- `DOCS/` for domain and milestone documents
 
-### External Knowledge Base (long-term memory)
-
-Located at:
+External knowledge base:
 
 ```text
 C:\Users\bosto\dockerstuff\knowledge-base\trading-system\
 ```
 
-Contains:
-
-* canonical entity definitions
-* trading rules and concepts
-* cross-topic synthesis
+It captures canonical entity notes, cross-topic synthesis, processed implementation notes, and exploratory future-direction documents.
 
 ---
 
@@ -316,26 +290,28 @@ Contains:
 
 Milestone 1 is complete.
 
-The system supports:
+Milestone 2 work already present in the repo includes:
 
-> intent → execution → closure → review
+- durable local JSON persistence
+- retrieval and timeline commands
+- narrow `OrderIntent`
+- read-side realized P&L
+- explicit CLI write commands
+
+The currently implemented workflow is:
+
+> intent -> order intent -> execution -> closure -> review
 
 Current focus:
 
-* maintaining domain clarity
-* preparing for persistence and OrderIntent (Milestone 2)
+- maintaining domain clarity
+- keeping Milestone 2 practical and well documented
+- evaluating later milestones without weakening boundaries
 
 ---
 
 ## Final Note
 
-This system is built to enforce **thinking quality**, not just track trades.
+This system is built to enforce thinking quality, not just track trades.
 
-If it feels “manual,” that is intentional.
-
-Automation will come later — on top of a correct foundation.
-
-```
-
----
-
+If it feels manual, that is intentional. Automation should only be added on top of a correct and auditable foundation.
