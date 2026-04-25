@@ -213,9 +213,9 @@ The MVP focuses on disciplined, auditable workflow rather than automation.
 
 Milestone 1 is complete.
 
-Milestone 2 is functionally complete in code and is awaiting explicit closeout and any final documentation polish.
+Milestone 2 is functionally complete in code.
 
-Milestone 3 has started with manual-workflow usability improvements.
+Milestone 3 is complete as the manual-workflow usability milestone.
 
 Current codebase capabilities include:
 
@@ -232,6 +232,7 @@ Current codebase capabilities include:
 - read-side CLI commands for trade ideas, trade theses, trade plans, trade reviews, and positions
 - exact-match filtering and `oldest|newest` sorting on the current list commands
 - consistent read-command presentation for headers, empty states, section ordering, and optional values
+- explicit `OrderIntent` cancellation with audit visibility and fill-linkage enforcement
 
 ---
 
@@ -241,13 +242,14 @@ Future work should stay incremental and preserve the current domain boundaries.
 
 The current milestone position is:
 
-- Milestone 2: functionally complete, awaiting explicit closeout
-- Milestone 3: started
+- Milestone 2: complete
+- Milestone 3: complete
+- Milestone 4: next
 
 The accepted near-term roadmap after Milestone 2 is:
 
 - **Milestone 3: Manual Workflow Usability**
-  Continue improving daily manual usage with CLI polish, chaining support, clearer summaries, and removal of avoidable friction.
+  Completed through CLI usability, read-side inspection, filtering/sorting, output consistency, and narrow `OrderIntent` cancellation.
 
 - **Milestone 4: Read-Only Market Context**
   Add external market and context data as read-only support for planning and review without making it canonical trade meaning.
@@ -268,6 +270,29 @@ Still explicitly deferred:
 - AI decision engines
 
 Reinforcement learning remains exploratory knowledge-base material, not the accepted Milestone 3 plan for this repository.
+
+### What Is Next In Milestone 4
+
+The next concrete work should come from the accepted Milestone 4 design:
+
+- add read-only retrieval of selected market and context inputs
+- keep context local-first through timestamped snapshots or cached references
+- surface context in the CLI alongside planning and review workflows
+- preserve a strict source-of-truth boundary so external context informs decisions without becoming canonical trade meaning
+
+The likely first slice is a narrow read-only context workflow such as:
+
+- fetch or refresh context for an instrument or review target
+- inspect preserved context from the CLI during planning or review
+- keep the stored output explainable, auditable, and non-executing
+
+Milestone 4 should still avoid:
+
+- live streaming market data
+- execution triggers
+- broker integration
+- automated plan creation from external signals
+- turning context ingestion into a general research platform
 
 ---
 
@@ -313,7 +338,11 @@ It captures canonical entity notes, cross-topic synthesis, processed implementat
 
 Milestone 1 is complete.
 
-Milestone 2 work already present in the repo includes:
+Milestone 2 is complete.
+
+Milestone 3 is complete.
+
+Milestone 2 and 3 work already present in the repo includes:
 
 - durable local JSON persistence
 - retrieval, review inspection, and timeline commands
@@ -321,6 +350,8 @@ Milestone 2 work already present in the repo includes:
 - read-side realized P&L
 - explicit CLI write commands
 - practical read-side CLI inspection for ideas, plans, reviews, and positions
+- exact-match list filtering and chronological sort controls
+- explicit `OrderIntent` cancellation with audit events
 
 The currently implemented workflow is:
 
@@ -329,16 +360,9 @@ The currently implemented workflow is:
 Current focus:
 
 - maintaining domain clarity
-- formally closing out Milestone 2 in docs and status framing
-- continuing Milestone 3 manual-workflow usability improvements
-- keeping order-intent cancellation out of this usability bundle
+- starting Milestone 4 read-only market context work
+- keeping external context read-only and non-canonical
 - keeping later milestones scoped without weakening boundaries
-
-Milestone 3 decision for the current usability bundle:
-
-- `OrderIntentStatus` includes `created` and `canceled`
-- `cancel-order-intent` explicitly records cancellation and emits an audit event
-- canceled order intents remain visible through existing plan and position detail views
 
 ---
 
