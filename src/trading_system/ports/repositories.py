@@ -42,6 +42,10 @@ class TradeThesisRepository(Protocol):
         """Return a trade thesis by identity."""
         ...
 
+    def list_all(self) -> list[TradeThesis]:
+        """Return all trade theses."""
+        ...
+
 
 class TradePlanRepository(Protocol):
     """Persistence boundary for trade plans."""
@@ -104,6 +108,10 @@ class OrderIntentRepository(Protocol):
 
     def get(self, order_intent_id: UUID) -> OrderIntent | None:
         """Return an order intent by identity."""
+        ...
+
+    def update(self, order_intent: OrderIntent) -> None:
+        """Persist changes to an order intent."""
         ...
 
     def list_by_trade_plan_id(self, trade_plan_id: UUID) -> list[OrderIntent]:

@@ -143,6 +143,13 @@ class JsonTradeThesisRepository:
         record = self._store.get("trade_theses", thesis_id)
         return None if record is None else _trade_thesis_from_record(record)
 
+    def list_all(self) -> list[TradeThesis]:
+        """Return all trade theses."""
+        return [
+            _trade_thesis_from_record(record)
+            for record in self._store.read()["trade_theses"].values()
+        ]
+
 
 class JsonTradePlanRepository:
     """Stores trade plans in a local JSON document."""
@@ -243,6 +250,10 @@ class JsonOrderIntentRepository:
         """Return an order intent by identity."""
         record = self._store.get("order_intents", order_intent_id)
         return None if record is None else _order_intent_from_record(record)
+
+    def update(self, order_intent: OrderIntent) -> None:
+        """Persist changes to an order intent."""
+        self.add(order_intent)
 
     def list_by_trade_plan_id(self, trade_plan_id: UUID) -> list[OrderIntent]:
         """Return order intents linked to a trade plan."""

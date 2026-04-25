@@ -4,6 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 import os
 from pathlib import Path
+from typing import Literal
 from uuid import UUID, uuid4
 
 import typer
@@ -15,6 +16,7 @@ from trading_system.infrastructure.json.repositories import (
     JsonRepositorySet,
     build_json_repositories,
 )
+from trading_system.services.cancel_order_intent_service import CancelOrderIntentService
 from trading_system.rules_engine.implementations.risk_defined_rule import RiskDefinedRule
 from trading_system.services.create_order_intent_service import CreateOrderIntentService
 from trading_system.services.fill_service import FillService
@@ -27,6 +29,7 @@ from trading_system.services.trade_planning_service import TradePlanningService
 from trading_system.services.trade_query_service import TradeQueryService
 
 app = typer.Typer(help="Structured discretionary trading system.")
+ListSortOrder = Literal["oldest", "newest"]
 
 
 @app.command()
@@ -383,6 +386,19 @@ def create_order_intent(
     _echo_order_intent(order_intent)
 
 
+@app.command("cancel-order-intent")
+def cancel_order_intent(order_intent_id: str) -> None:
+    """Cancel a persisted order intent."""
+    repositories = _repositories()
+    order_intent = _run_service(
+        lambda: CancelOrderIntentService(
+            order_intent_repository=repositories.order_intents,
+            lifecycle_event_repository=repositories.lifecycle_events,
+        ).cancel_order_intent(_parse_uuid(order_intent_id))
+    )
+    _echo_order_intent(order_intent)
+
+
 @app.command("open-position")
 def open_position(trade_plan_id: str) -> None:
     """Open a position from an approved trade plan."""
@@ -484,9 +500,19 @@ def create_trade_review(
 
 
 @app.command("list-trade-ideas")
-def list_trade_ideas() -> None:
+def list_trade_ideas(
+    purpose: str | None = typer.Option(None, "--purpose"),
+    direction: str | None = typer.Option(None, "--direction"),
+    status: str | None = typer.Option(None, "--status"),
+    sort: ListSortOrder = typer.Option("oldest", "--sort"),
+) -> None:
     """List persisted trade ideas from the local JSON store."""
-    ideas = _trade_query_service().list_trade_ideas()
+    ideas = _trade_query_service().list_trade_ideas(
+        purpose=purpose,
+        direction=direction,
+        status=status,
+        sort=sort,
+    )
     if not ideas:
         typer.echo("No trade ideas found.")
         return
@@ -507,10 +533,104 @@ def list_trade_ideas() -> None:
         )
 
 
+@app.command("list-trade-theses")
+def list_trade_theses(
+    purpose: str | None = typer.Option(None, "--purpose"),
+    direction: str | None = typer.Option(None, "--direction"),
+    has_plan: bool = typer.Option(False, "--has-plan"),
+    sort: ListSortOrder = typer.Option("oldest", "--sort"),
+) -> None:
+    """List persisted trade theses with linked idea context and plan counts."""
+    theses = _trade_query_service().list_trade_theses(
+        purpose=purpose,
+        direction=direction,
+        has_plan=True if has_plan else None,
+        sort=sort,
+    )
+    if not theses:
+        typer.echo("No trade theses found.")
+        return
+
+    typer.echo(
+        "TRADE_THESIS_ID | TRADE_IDEA_ID | PURPOSE | DIRECTION | PLAN_COUNT | "
+        "TRADE_IDEA_CREATED_AT"
+    )
+    for item in theses:
+        typer.echo(
+            " | ".join(
+                [
+                    str(item.trade_thesis.id),
+                    str(item.trade_idea.id),
+                    item.trade_idea.purpose,
+                    item.trade_idea.direction,
+                    str(item.plan_count),
+                    item.trade_idea.created_at.isoformat(),
+                ]
+            )
+        )
+
+
+@app.command("show-trade-thesis")
+def show_trade_thesis(trade_thesis_id: str) -> None:
+    """Show a persisted trade thesis with linked trade idea and trade plans."""
+    detail = _run_service(
+        lambda: _trade_query_service().get_trade_thesis_detail(
+            _parse_uuid(trade_thesis_id)
+        )
+    )
+    thesis = detail.trade_thesis
+
+    _echo_section(
+        "Trade thesis",
+        [
+            ("trade_idea_id", thesis.trade_idea_id),
+            ("reasoning", thesis.reasoning),
+            ("supporting_evidence", _format_string_list(thesis.supporting_evidence)),
+            ("risks", _format_string_list(thesis.risks)),
+            ("disconfirming_signals", _format_string_list(thesis.disconfirming_signals)),
+        ],
+        heading_value=thesis.id,
+    )
+    _echo_section(
+        "Trade idea",
+        [
+            ("id", detail.trade_idea.id),
+            ("status", detail.trade_idea.status),
+            ("instrument_id", detail.trade_idea.instrument_id),
+            ("playbook_id", detail.trade_idea.playbook_id),
+            ("purpose", detail.trade_idea.purpose),
+            ("direction", detail.trade_idea.direction),
+            ("horizon", detail.trade_idea.horizon),
+            ("created_at", detail.trade_idea.created_at.isoformat()),
+        ],
+    )
+    _echo_collection_section(
+        "Trade plans",
+        "No trade plans found.",
+        [
+            [
+                ("trade_plan_id", plan.id),
+                ("approval_state", plan.approval_state),
+                ("trade_idea_id", plan.trade_idea_id),
+                ("entry_criteria", plan.entry_criteria),
+                ("invalidation", plan.invalidation),
+                ("created_at", plan.created_at.isoformat()),
+            ]
+            for plan in detail.trade_plans
+        ],
+    )
+
+
 @app.command("list-trade-plans")
-def list_trade_plans() -> None:
+def list_trade_plans(
+    approval_state: str | None = typer.Option(None, "--approval-state"),
+    sort: ListSortOrder = typer.Option("oldest", "--sort"),
+) -> None:
     """List persisted trade plans from the local JSON store."""
-    plans = _trade_query_service().list_trade_plans()
+    plans = _trade_query_service().list_trade_plans(
+        approval_state=approval_state,
+        sort=sort,
+    )
     if not plans:
         typer.echo("No trade plans found.")
         return
@@ -541,75 +661,114 @@ def show_trade_plan(trade_plan_id: str) -> None:
     )
     plan = detail.trade_plan
 
-    typer.echo(f"Trade plan {plan.id}")
-    typer.echo(f"approval_state: {plan.approval_state}")
-    typer.echo(f"trade_idea_id: {plan.trade_idea_id}")
-    typer.echo(f"trade_thesis_id: {plan.trade_thesis_id}")
-    typer.echo(f"entry_criteria: {plan.entry_criteria}")
-    typer.echo(f"invalidation: {plan.invalidation}")
-    typer.echo(f"targets: {_format_string_list(plan.targets)}")
-    typer.echo(f"risk_model: {_format_optional_text(plan.risk_model)}")
-    typer.echo(
-        f"sizing_assumptions: {_format_optional_text(plan.sizing_assumptions)}"
+    _echo_section(
+        "Trade plan",
+        [
+            ("approval_state", plan.approval_state),
+            ("trade_idea_id", plan.trade_idea_id),
+            ("trade_thesis_id", plan.trade_thesis_id),
+            ("entry_criteria", plan.entry_criteria),
+            ("invalidation", plan.invalidation),
+            ("targets", _format_string_list(plan.targets)),
+            ("risk_model", _format_optional_text(plan.risk_model)),
+            ("sizing_assumptions", _format_optional_text(plan.sizing_assumptions)),
+            ("created_at", plan.created_at.isoformat()),
+        ],
+        heading_value=plan.id,
     )
-    typer.echo(f"created_at: {plan.created_at.isoformat()}")
-    typer.echo("")
-    typer.echo("Trade idea")
-    typer.echo(f"id: {detail.trade_idea.id}")
-    typer.echo(f"purpose: {detail.trade_idea.purpose}")
-    typer.echo(f"direction: {detail.trade_idea.direction}")
-    typer.echo(f"horizon: {detail.trade_idea.horizon}")
-    typer.echo("")
-    typer.echo("Trade thesis")
-    typer.echo(f"id: {detail.trade_thesis.id}")
-    typer.echo(f"reasoning: {detail.trade_thesis.reasoning}")
-    typer.echo(
-        "supporting_evidence: "
-        f"{_format_string_list(detail.trade_thesis.supporting_evidence)}"
+    _echo_section(
+        "Trade idea",
+        [
+            ("id", detail.trade_idea.id),
+            ("status", detail.trade_idea.status),
+            ("instrument_id", detail.trade_idea.instrument_id),
+            ("playbook_id", detail.trade_idea.playbook_id),
+            ("purpose", detail.trade_idea.purpose),
+            ("direction", detail.trade_idea.direction),
+            ("horizon", detail.trade_idea.horizon),
+            ("created_at", detail.trade_idea.created_at.isoformat()),
+        ],
     )
-    typer.echo(f"risks: {_format_string_list(detail.trade_thesis.risks)}")
-    typer.echo(
-        "disconfirming_signals: "
-        f"{_format_string_list(detail.trade_thesis.disconfirming_signals)}"
+    _echo_section(
+        "Trade thesis",
+        [
+            ("id", detail.trade_thesis.id),
+            ("trade_idea_id", detail.trade_thesis.trade_idea_id),
+            ("reasoning", detail.trade_thesis.reasoning),
+            (
+                "supporting_evidence",
+                _format_string_list(detail.trade_thesis.supporting_evidence),
+            ),
+            ("risks", _format_string_list(detail.trade_thesis.risks)),
+            (
+                "disconfirming_signals",
+                _format_string_list(detail.trade_thesis.disconfirming_signals),
+            ),
+        ],
     )
-    typer.echo("")
-    typer.echo("Rule evaluations")
-    if detail.rule_evaluations:
-        for evaluation in detail.rule_evaluations:
-            typer.echo(
-                f"{evaluation.evaluated_at.isoformat()} | passed={evaluation.passed} | "
-                f"rule_id={evaluation.rule_id} | details={evaluation.details or ''}"
-            )
-    else:
-        typer.echo("No rule evaluations found.")
-    typer.echo("")
-    typer.echo("Order intents")
-    if detail.order_intents:
-        for order_intent in detail.order_intents:
-            typer.echo(
-                f"{order_intent.created_at.isoformat()} | {order_intent.side.value} | "
-                f"{order_intent.order_type.value} | {order_intent.quantity} | "
-                f"{order_intent.symbol} | status={order_intent.status.value} | "
-                f"id={order_intent.id}"
-            )
-    else:
-        typer.echo("No order intents found.")
-    typer.echo("")
-    typer.echo("Positions")
-    if detail.positions:
-        for position in detail.positions:
-            typer.echo(
-                f"{position.opened_at.isoformat()} | {position.lifecycle_state} | "
-                f"id={position.id} | current_quantity={position.current_quantity}"
-            )
-    else:
-        typer.echo("No positions found.")
+    _echo_collection_section(
+        "Rule evaluations",
+        "No rule evaluations found.",
+        [
+            [
+                ("rule_evaluation_id", evaluation.id),
+                ("rule_id", evaluation.rule_id),
+                ("passed", evaluation.passed),
+                ("details", _format_optional_text(evaluation.details)),
+                ("evaluated_at", evaluation.evaluated_at.isoformat()),
+            ]
+            for evaluation in detail.rule_evaluations
+        ],
+    )
+    _echo_collection_section(
+        "Order intents",
+        "No order intents found.",
+        [
+            [
+                ("order_intent_id", order_intent.id),
+                ("status", order_intent.status.value),
+                ("symbol", order_intent.symbol),
+                ("side", order_intent.side.value),
+                ("order_type", order_intent.order_type.value),
+                ("quantity", order_intent.quantity),
+                ("limit_price", _format_optional_decimal(order_intent.limit_price)),
+                ("stop_price", _format_optional_decimal(order_intent.stop_price)),
+                ("notes", _format_optional_text(order_intent.notes)),
+                ("created_at", order_intent.created_at.isoformat()),
+            ]
+            for order_intent in detail.order_intents
+        ],
+    )
+    _echo_collection_section(
+        "Positions",
+        "No positions found.",
+        [
+            [
+                ("position_id", position.id),
+                ("state", position.lifecycle_state),
+                ("current_quantity", position.current_quantity),
+                ("opened_at", position.opened_at.isoformat()),
+                ("closed_at", _format_optional_show_datetime(position.closed_at)),
+            ]
+            for position in detail.positions
+        ],
+    )
 
 
 @app.command("list-trade-reviews")
-def list_trade_reviews() -> None:
+def list_trade_reviews(
+    rating: int | None = typer.Option(None, "--rating"),
+    purpose: str | None = typer.Option(None, "--purpose"),
+    direction: str | None = typer.Option(None, "--direction"),
+    sort: ListSortOrder = typer.Option("oldest", "--sort"),
+) -> None:
     """List persisted trade reviews from the local JSON store."""
-    reviews = _review_query_service().list_trade_reviews()
+    reviews = _review_query_service().list_trade_reviews(
+        rating=rating,
+        purpose=purpose,
+        direction=direction,
+        sort=sort,
+    )
     if not reviews:
         typer.echo("No trade reviews found.")
         return
@@ -645,33 +804,45 @@ def show_trade_review(trade_review_id: str) -> None:
     )
     review = detail.review
 
-    typer.echo(f"Trade review {review.id}")
-    typer.echo(f"position_id: {review.position_id}")
-    typer.echo(f"trade_plan_id: {detail.trade_plan.id}")
-    typer.echo(f"rating: {'' if review.rating is None else review.rating}")
-    typer.echo(f"reviewed_at: {review.reviewed_at.isoformat()}")
-    typer.echo(f"summary: {review.summary}")
-    typer.echo(f"what_went_well: {review.what_went_well}")
-    typer.echo(f"what_went_poorly: {review.what_went_poorly}")
-    typer.echo(f"lessons_learned: {_format_string_list(review.lessons_learned)}")
-    typer.echo(
-        f"follow_up_actions: {_format_string_list(review.follow_up_actions)}"
+    _echo_section(
+        "Trade review",
+        [
+            ("position_id", review.position_id),
+            ("trade_plan_id", detail.trade_plan.id),
+            ("rating", _format_optional_show_value(review.rating)),
+            ("reviewed_at", review.reviewed_at.isoformat()),
+            ("summary", review.summary),
+            ("what_went_well", review.what_went_well),
+            ("what_went_poorly", review.what_went_poorly),
+            ("lessons_learned", _format_string_list(review.lessons_learned)),
+            ("follow_up_actions", _format_string_list(review.follow_up_actions)),
+        ],
+        heading_value=review.id,
     )
-    typer.echo("")
-    typer.echo("Position")
-    typer.echo(f"id: {detail.position.id}")
-    typer.echo(f"state: {detail.position.lifecycle_state}")
-    typer.echo(f"realized_pnl: {_format_optional_decimal(detail.realized_pnl)}")
-    typer.echo("")
-    typer.echo("Trade plan")
-    typer.echo(f"id: {detail.trade_plan.id}")
-    typer.echo(f"approval_state: {detail.trade_plan.approval_state}")
-    typer.echo("")
-    typer.echo("Trade idea")
-    typer.echo(f"id: {detail.trade_idea.id}")
-    typer.echo(f"purpose: {detail.trade_idea.purpose}")
-    typer.echo(f"direction: {detail.trade_idea.direction}")
-    typer.echo(f"horizon: {detail.trade_idea.horizon}")
+    _echo_section(
+        "Position",
+        [
+            ("id", detail.position.id),
+            ("state", detail.position.lifecycle_state),
+            ("realized_pnl", _format_optional_decimal(detail.realized_pnl)),
+        ],
+    )
+    _echo_section(
+        "Trade plan",
+        [
+            ("id", detail.trade_plan.id),
+            ("approval_state", detail.trade_plan.approval_state),
+        ],
+    )
+    _echo_section(
+        "Trade idea",
+        [
+            ("id", detail.trade_idea.id),
+            ("purpose", detail.trade_idea.purpose),
+            ("direction", detail.trade_idea.direction),
+            ("horizon", detail.trade_idea.horizon),
+        ],
+    )
 
 
 @app.command("list-positions")
@@ -681,10 +852,18 @@ def list_positions(
         "--state",
         help="Filter positions by lifecycle state, such as open or closed.",
     ),
+    purpose: str | None = typer.Option(None, "--purpose"),
+    has_review: bool | None = typer.Option(None, "--has-review/--no-review"),
+    sort: ListSortOrder = typer.Option("oldest", "--sort"),
 ) -> None:
     """List persisted positions from the local JSON store."""
     query_service = _position_query_service()
-    positions = query_service.list_positions(lifecycle_state=state)
+    positions = query_service.list_positions(
+        lifecycle_state=state,
+        purpose=purpose,
+        has_review=has_review,
+        sort=sort,
+    )
     if not positions:
         typer.echo("No positions found.")
         return
@@ -718,67 +897,87 @@ def show_position(position_id: str) -> None:
     plan = detail.trade_plan
     idea = detail.trade_idea
 
-    typer.echo(f"Position {position.id}")
-    typer.echo(f"state: {position.lifecycle_state}")
-    typer.echo(f"purpose: {position.purpose}")
-    typer.echo(f"instrument_id: {position.instrument_id}")
-    typer.echo(f"trade_plan_id: {position.trade_plan_id}")
-    typer.echo(f"current_quantity: {position.current_quantity}")
-    typer.echo(f"average_entry_price: {position.average_entry_price}")
-    typer.echo(f"realized_pnl: {_format_optional_decimal(detail.realized_pnl)}")
-    typer.echo(f"opened_at: {position.opened_at.isoformat()}")
-    typer.echo(f"closed_at: {_format_optional_datetime(position.closed_at)}")
-    typer.echo("")
-    typer.echo("Trade plan")
-    typer.echo(f"id: {plan.id}")
-    typer.echo(f"approval_state: {plan.approval_state}")
-    typer.echo(f"entry_criteria: {plan.entry_criteria}")
-    typer.echo(f"invalidation: {plan.invalidation}")
-    typer.echo(f"risk_model: {plan.risk_model}")
-    typer.echo("")
-    typer.echo("Trade idea")
-    typer.echo(f"id: {idea.id}")
-    typer.echo(f"purpose: {idea.purpose}")
-    typer.echo(f"direction: {idea.direction}")
-    typer.echo(f"horizon: {idea.horizon}")
-    typer.echo(f"instrument_id: {idea.instrument_id}")
-    typer.echo("")
-    typer.echo("Order intents")
-    if detail.order_intents:
-        for order_intent in detail.order_intents:
-            prices: list[str] = []
-            if order_intent.limit_price is not None:
-                prices.append(f"limit={order_intent.limit_price}")
-            if order_intent.stop_price is not None:
-                prices.append(f"stop={order_intent.stop_price}")
-            price_text = "" if not prices else " | " + " | ".join(prices)
-            typer.echo(
-                f"{order_intent.created_at.isoformat()} | {order_intent.side.value} | "
-                f"{order_intent.order_type.value} | {order_intent.quantity} | "
-                f"{order_intent.symbol} | status={order_intent.status.value} | "
-                f"id={order_intent.id}{price_text}"
-            )
-    else:
-        typer.echo("No order intents found.")
-    typer.echo("")
-    typer.echo("Fills")
-    if detail.fills:
-        for fill in detail.fills:
-            typer.echo(
-                f"{fill.filled_at.isoformat()} | {fill.side} | "
-                f"{fill.quantity} @ {fill.price} | source={fill.source} | "
-                f"id={fill.id}"
-            )
-    else:
-        typer.echo("No fills found.")
-    typer.echo("")
-    typer.echo("Review")
+    _echo_section(
+        "Position",
+        [
+            ("state", position.lifecycle_state),
+            ("instrument_id", position.instrument_id),
+            ("trade_plan_id", position.trade_plan_id),
+            ("purpose", position.purpose),
+            ("current_quantity", position.current_quantity),
+            ("average_entry_price", _format_optional_decimal(position.average_entry_price)),
+            ("realized_pnl", _format_optional_decimal(detail.realized_pnl)),
+            ("opened_at", position.opened_at.isoformat()),
+            ("closed_at", _format_optional_show_datetime(position.closed_at)),
+        ],
+        heading_value=position.id,
+    )
+    _echo_section(
+        "Trade plan",
+        [
+            ("id", plan.id),
+            ("approval_state", plan.approval_state),
+            ("entry_criteria", plan.entry_criteria),
+            ("invalidation", plan.invalidation),
+            ("risk_model", _format_optional_text(plan.risk_model)),
+        ],
+    )
+    _echo_section(
+        "Trade idea",
+        [
+            ("id", idea.id),
+            ("purpose", idea.purpose),
+            ("direction", idea.direction),
+            ("horizon", idea.horizon),
+            ("instrument_id", idea.instrument_id),
+        ],
+    )
+    _echo_collection_section(
+        "Order intents",
+        "No order intents found.",
+        [
+            [
+                ("order_intent_id", order_intent.id),
+                ("status", order_intent.status.value),
+                ("symbol", order_intent.symbol),
+                ("side", order_intent.side.value),
+                ("order_type", order_intent.order_type.value),
+                ("quantity", order_intent.quantity),
+                ("limit_price", _format_optional_decimal(order_intent.limit_price)),
+                ("stop_price", _format_optional_decimal(order_intent.stop_price)),
+                ("created_at", order_intent.created_at.isoformat()),
+            ]
+            for order_intent in detail.order_intents
+        ],
+    )
+    _echo_collection_section(
+        "Fills",
+        "No fills found.",
+        [
+            [
+                ("fill_id", fill.id),
+                ("order_intent_id", _format_optional_show_value(fill.order_intent_id)),
+                ("side", fill.side),
+                ("quantity", fill.quantity),
+                ("price", fill.price),
+                ("source", fill.source),
+                ("notes", _format_optional_text(fill.notes)),
+                ("filled_at", fill.filled_at.isoformat()),
+            ]
+            for fill in detail.fills
+        ],
+    )
     if detail.review is None:
-        typer.echo("No review found.")
+        _echo_section("Review", [("status", "No review found.")])
     else:
-        typer.echo(f"id: {detail.review.id}")
-        typer.echo(f"rating: {detail.review.rating}")
-        typer.echo(f"summary: {detail.review.summary}")
+        _echo_section(
+            "Review",
+            [
+                ("id", detail.review.id),
+                ("rating", _format_optional_show_value(detail.review.rating)),
+                ("summary", detail.review.summary),
+            ],
+        )
 
 
 @app.command("show-position-timeline")
@@ -902,6 +1101,16 @@ def _format_optional_text(value: str | None) -> str:
     return "" if value is None else value
 
 
+def _format_optional_show_datetime(value: datetime | None) -> str:
+    """Format optional datetime values for show output."""
+    return "N/A" if value is None else value.isoformat()
+
+
+def _format_optional_show_value(value: object | None) -> str:
+    """Format optional generic values for show output."""
+    return "N/A" if value is None else str(value)
+
+
 def _format_string_list(values: list[str]) -> str:
     """Format repeated string fields for CLI output."""
     if not values:
@@ -916,6 +1125,44 @@ def _run_service(func):
     except ValueError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
+
+
+def _echo_field_lines(fields: list[tuple[str, object]]) -> None:
+    """Print field/value pairs with normalized CLI formatting."""
+    for name, value in fields:
+        typer.echo(f"{name}: {value}")
+
+
+def _echo_section(
+    title: str,
+    fields: list[tuple[str, object]],
+    heading_value: object | None = None,
+) -> None:
+    """Print one titled section with normalized spacing."""
+    if heading_value is None:
+        typer.echo(title)
+    else:
+        typer.echo(f"{title} {heading_value}")
+    _echo_field_lines(fields)
+    typer.echo("")
+
+
+def _echo_collection_section(
+    title: str,
+    empty_message: str,
+    items: list[list[tuple[str, object]]],
+) -> None:
+    """Print one titled collection section using field-only item rows."""
+    typer.echo(title)
+    if not items:
+        typer.echo(empty_message)
+        typer.echo("")
+        return
+    for index, item_fields in enumerate(items):
+        _echo_field_lines(item_fields)
+        if index != len(items) - 1:
+            typer.echo("")
+    typer.echo("")
 
 
 def _echo_order_intent(order_intent: OrderIntent) -> None:

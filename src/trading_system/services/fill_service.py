@@ -5,6 +5,7 @@ from uuid import UUID
 
 from trading_system.domain.trading.fill import Fill
 from trading_system.domain.trading.lifecycle import LifecycleEvent
+from trading_system.domain.trading.order_intent import OrderIntentStatus
 from trading_system.ports.repositories import (
     FillRepository,
     LifecycleEventRepository,
@@ -47,6 +48,8 @@ class FillService:
             order_intent = self._order_intents.get(order_intent_id)
             if order_intent is None:
                 raise ValueError("Order intent does not exist.")
+            if order_intent.status == OrderIntentStatus.CANCELED:
+                raise ValueError("Canceled order intent cannot be linked to a manual fill.")
             if order_intent.trade_plan_id != position.trade_plan_id:
                 raise ValueError("Order intent must belong to the same trade plan as the position.")
 

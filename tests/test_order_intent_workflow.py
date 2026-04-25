@@ -1,5 +1,6 @@
 """Tests for narrow order-intent creation and linked fills."""
 
+from dataclasses import replace
 from decimal import Decimal
 from uuid import uuid4
 
@@ -19,6 +20,7 @@ from trading_system.infrastructure.memory.repositories import (
     InMemoryTradeThesisRepository,
     InMemoryViolationRepository,
 )
+from trading_system.services.cancel_order_intent_service import CancelOrderIntentService
 from trading_system.rules_engine.implementations.risk_defined_rule import RiskDefinedRule
 from trading_system.services.create_order_intent_service import CreateOrderIntentService
 from trading_system.services.fill_service import FillService
@@ -174,6 +176,110 @@ def test_fill_service_accepts_valid_linked_order_intent() -> None:
     assert fill.order_intent_id == order_intent.id
 
 
+def test_in_memory_order_intent_repository_update_replaces_stored_record() -> None:
+    """In-memory order-intent updates replace the stored immutable record."""
+    workflow = _workflow()
+    plan = workflow.create_approved_plan()
+    workflow.evaluate_rules(plan.id)
+    created = workflow.order_intents.create_order_intent(
+        trade_plan_id=plan.id,
+        symbol="AAPL",
+        side=OrderSide.BUY,
+        order_type=OrderType.LIMIT,
+        quantity=Decimal("100"),
+        limit_price=Decimal("25.50"),
+    )
+    canceled = replace(created, status=OrderIntentStatus.CANCELED)
+    workflow.order_intent_repository.update(canceled)
+
+    assert workflow.order_intent_repository.get(created.id) == canceled
+    assert workflow.order_intent_repository.get(created.id).status == OrderIntentStatus.CANCELED
+
+
+def test_can_cancel_existing_order_intent() -> None:
+    """Cancellation updates the stored status and emits an audit event."""
+    workflow = _workflow()
+    plan = workflow.create_approved_plan()
+    workflow.evaluate_rules(plan.id)
+    order_intent = workflow.order_intents.create_order_intent(
+        trade_plan_id=plan.id,
+        symbol="AAPL",
+        side=OrderSide.BUY,
+        order_type=OrderType.LIMIT,
+        quantity=Decimal("100"),
+        limit_price=Decimal("25.50"),
+    )
+
+    canceled = workflow.cancel_order_intents.cancel_order_intent(order_intent.id)
+
+    assert canceled.status == OrderIntentStatus.CANCELED
+    assert workflow.order_intent_repository.get(order_intent.id) == canceled
+    events = workflow.lifecycle_events.list_by_entity("OrderIntent", order_intent.id)
+    assert [event.event_type for event in events] == [
+        "ORDER_INTENT_CREATED",
+        "ORDER_INTENT_CANCELED",
+    ]
+    assert events[1].details == {
+        "order_intent_id": str(order_intent.id),
+        "trade_plan_id": str(plan.id),
+        "status": "canceled",
+    }
+
+
+def test_cannot_cancel_missing_order_intent() -> None:
+    """Cancellation requires an existing persisted order intent."""
+    workflow = _workflow()
+
+    with pytest.raises(ValueError, match="Order intent does not exist"):
+        workflow.cancel_order_intents.cancel_order_intent(uuid4())
+
+
+def test_cannot_cancel_order_intent_twice() -> None:
+    """Cancellation rejects repeated attempts with a clear error."""
+    workflow = _workflow()
+    plan = workflow.create_approved_plan()
+    workflow.evaluate_rules(plan.id)
+    order_intent = workflow.order_intents.create_order_intent(
+        trade_plan_id=plan.id,
+        symbol="AAPL",
+        side=OrderSide.BUY,
+        order_type=OrderType.LIMIT,
+        quantity=Decimal("100"),
+        limit_price=Decimal("25.50"),
+    )
+
+    workflow.cancel_order_intents.cancel_order_intent(order_intent.id)
+
+    with pytest.raises(ValueError, match="already canceled"):
+        workflow.cancel_order_intents.cancel_order_intent(order_intent.id)
+
+
+def test_fill_service_rejects_canceled_order_intent() -> None:
+    """Manual fills cannot link a canceled order intent."""
+    workflow = _workflow()
+    plan = workflow.create_approved_plan()
+    workflow.evaluate_rules(plan.id)
+    position = workflow.positions.open_position_from_plan(plan.id)
+    order_intent = workflow.order_intents.create_order_intent(
+        trade_plan_id=plan.id,
+        symbol="AAPL",
+        side=OrderSide.BUY,
+        order_type=OrderType.LIMIT,
+        quantity=Decimal("100"),
+        limit_price=Decimal("25.50"),
+    )
+    workflow.cancel_order_intents.cancel_order_intent(order_intent.id)
+
+    with pytest.raises(ValueError, match="Canceled order intent cannot be linked"):
+        workflow.fills.record_manual_fill(
+            position_id=position.id,
+            side="buy",
+            quantity=Decimal("100"),
+            price=Decimal("25.50"),
+            order_intent_id=order_intent.id,
+        )
+
+
 def test_fill_service_rejects_mismatched_order_intent_plan() -> None:
     """Manual fills cannot link an order intent from a different plan."""
     workflow = _workflow()
@@ -244,6 +350,10 @@ class _Workflow:
             plan_repository=self.plan_repository,
             order_intent_repository=self.order_intent_repository,
             evaluation_repository=self.evaluations,
+            lifecycle_event_repository=self.lifecycle_events,
+        )
+        self.cancel_order_intents = CancelOrderIntentService(
+            order_intent_repository=self.order_intent_repository,
             lifecycle_event_repository=self.lifecycle_events,
         )
         self.fills = FillService(

@@ -47,6 +47,10 @@ class InMemoryTradeThesisRepository:
         """Return a trade thesis by identity."""
         return self.items.get(thesis_id)
 
+    def list_all(self) -> list[TradeThesis]:
+        """Return all trade theses."""
+        return list(self.items.values())
+
 
 class InMemoryTradePlanRepository:
     """Stores trade plans in memory for local workflows."""
@@ -122,6 +126,10 @@ class InMemoryOrderIntentRepository:
     def get(self, order_intent_id: UUID) -> OrderIntent | None:
         """Return an order intent by identity."""
         return self.items.get(order_intent_id)
+
+    def update(self, order_intent: OrderIntent) -> None:
+        """Persist changes to an order intent."""
+        self.items[order_intent.id] = order_intent
 
     def list_by_trade_plan_id(self, trade_plan_id: UUID) -> list[OrderIntent]:
         """Return order intents linked to a trade plan."""

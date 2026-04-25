@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from trading_system.domain.trading.fill import Fill
@@ -56,8 +57,14 @@ class PositionQueryService:
         self._reviews = review_repository
         self._lifecycle_events = lifecycle_event_repository
 
-    def list_positions(self, lifecycle_state: str | None = None) -> list[Position]:
-        """Return persisted positions, optionally filtered by lifecycle state."""
+    def list_positions(
+        self,
+        lifecycle_state: str | None = None,
+        purpose: str | None = None,
+        has_review: bool | None = None,
+        sort: Literal["oldest", "newest"] = "oldest",
+    ) -> list[Position]:
+        """Return persisted positions with exact filters and chronological sorting."""
         positions = self._positions.list_all()
         if lifecycle_state is not None:
             positions = [
@@ -65,7 +72,19 @@ class PositionQueryService:
                 for position in positions
                 if position.lifecycle_state == lifecycle_state
             ]
-        return sorted(positions, key=lambda position: position.opened_at)
+        if purpose is not None:
+            positions = [position for position in positions if position.purpose == purpose]
+        if has_review is not None:
+            positions = [
+                position
+                for position in positions
+                if (self._reviews.get_by_position_id(position.id) is not None) == has_review
+            ]
+        return sorted(
+            positions,
+            key=lambda position: position.opened_at,
+            reverse=sort == "newest",
+        )
 
     def get_position_detail(self, position_id: UUID) -> PositionDetail:
         """Return a position with linked plan, idea, fills, and review."""

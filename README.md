@@ -139,6 +139,7 @@ uv run trading-system create-trade-plan --trade-idea-id <trade-idea-id> --trade-
 uv run trading-system approve-trade-plan <trade-plan-id>
 uv run trading-system evaluate-trade-plan-rules <trade-plan-id>
 uv run trading-system create-order-intent --trade-plan-id <trade-plan-id> --symbol AAPL --side buy --order-type limit --quantity 100 --limit-price 25.50
+uv run trading-system cancel-order-intent <order-intent-id>
 uv run trading-system open-position <trade-plan-id>
 uv run trading-system record-fill --position-id <position-id> --side buy --quantity 100 --price 25.50 --order-intent-id <order-intent-id>
 uv run trading-system record-fill --position-id <position-id> --side sell --quantity 100 --price 27.00
@@ -149,12 +150,19 @@ uv run trading-system create-trade-review --position-id <position-id> --summary 
 
 ```powershell
 uv run trading-system list-trade-ideas
+uv run trading-system list-trade-ideas --purpose swing --direction long --status draft --sort newest
+uv run trading-system list-trade-theses
+uv run trading-system list-trade-theses --has-plan --sort newest
+uv run trading-system show-trade-thesis <trade-thesis-id>
 uv run trading-system list-trade-plans
+uv run trading-system list-trade-plans --approval-state approved --sort newest
 uv run trading-system show-trade-plan <trade-plan-id>
 uv run trading-system list-trade-reviews
+uv run trading-system list-trade-reviews --rating 4 --purpose swing --direction long --sort newest
 uv run trading-system show-trade-review <trade-review-id>
 uv run trading-system list-positions
-uv run trading-system list-positions --state closed
+uv run trading-system list-positions --state closed --sort newest
+uv run trading-system list-positions --purpose swing --has-review
 uv run trading-system show-position <position-id>
 uv run trading-system show-position-timeline <position-id>
 ```
@@ -221,7 +229,8 @@ Current codebase capabilities include:
 - basic realized P&L for closed positions on the read side
 - lifecycle event audit trail and position timeline output
 - explicit CLI write commands for the core workflow
-- read-side CLI commands for trade ideas, trade plans, trade reviews, and positions
+- read-side CLI commands for trade ideas, trade theses, trade plans, trade reviews, and positions
+- exact-match filtering and `oldest|newest` sorting on the current list commands
 - consistent read-command presentation for headers, empty states, section ordering, and optional values
 
 ---
@@ -322,7 +331,14 @@ Current focus:
 - maintaining domain clarity
 - formally closing out Milestone 2 in docs and status framing
 - continuing Milestone 3 manual-workflow usability improvements
+- keeping order-intent cancellation out of this usability bundle
 - keeping later milestones scoped without weakening boundaries
+
+Milestone 3 decision for the current usability bundle:
+
+- `OrderIntentStatus` includes `created` and `canceled`
+- `cancel-order-intent` explicitly records cancellation and emits an audit event
+- canceled order intents remain visible through existing plan and position detail views
 
 ---
 
