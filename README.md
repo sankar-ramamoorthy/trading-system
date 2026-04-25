@@ -151,6 +151,8 @@ uv run trading-system create-trade-review --position-id <position-id> --summary 
 uv run trading-system list-trade-ideas
 uv run trading-system list-trade-plans
 uv run trading-system show-trade-plan <trade-plan-id>
+uv run trading-system list-trade-reviews
+uv run trading-system show-trade-review <trade-review-id>
 uv run trading-system list-positions
 uv run trading-system list-positions --state closed
 uv run trading-system show-position <position-id>
@@ -201,7 +203,11 @@ The MVP focuses on disciplined, auditable workflow rather than automation.
 
 ## Current Capabilities
 
-Milestone 1 is complete. Milestone 2 is in progress and already implemented in part.
+Milestone 1 is complete.
+
+Milestone 2 is functionally complete in code and is awaiting explicit closeout and any final documentation polish.
+
+Milestone 3 has started with manual-workflow usability improvements.
 
 Current codebase capabilities include:
 
@@ -215,16 +221,24 @@ Current codebase capabilities include:
 - basic realized P&L for closed positions on the read side
 - lifecycle event audit trail and position timeline output
 - explicit CLI write commands for the core workflow
-- read-side CLI commands for trade ideas, trade plans, and positions
+- read-side CLI commands for trade ideas, trade plans, trade reviews, and positions
+- consistent read-command presentation for headers, empty states, section ordering, and optional values
 
 ---
 
 ## What Comes Next
 
-Future work should stay incremental and preserve the current domain boundaries. The accepted near-term roadmap after Milestone 2 is:
+Future work should stay incremental and preserve the current domain boundaries.
+
+The current milestone position is:
+
+- Milestone 2: functionally complete, awaiting explicit closeout
+- Milestone 3: started
+
+The accepted near-term roadmap after Milestone 2 is:
 
 - **Milestone 3: Manual Workflow Usability**
-  Improve daily manual usage with CLI polish, chaining support, clearer summaries, and removal of avoidable friction.
+  Continue improving daily manual usage with CLI polish, chaining support, clearer summaries, and removal of avoidable friction.
 
 - **Milestone 4: Read-Only Market Context**
   Add external market and context data as read-only support for planning and review without making it canonical trade meaning.
@@ -293,10 +307,11 @@ Milestone 1 is complete.
 Milestone 2 work already present in the repo includes:
 
 - durable local JSON persistence
-- retrieval and timeline commands
+- retrieval, review inspection, and timeline commands
 - narrow `OrderIntent`
 - read-side realized P&L
 - explicit CLI write commands
+- practical read-side CLI inspection for ideas, plans, reviews, and positions
 
 The currently implemented workflow is:
 
@@ -305,8 +320,9 @@ The currently implemented workflow is:
 Current focus:
 
 - maintaining domain clarity
-- keeping Milestone 2 practical and well documented
-- evaluating later milestones without weakening boundaries
+- formally closing out Milestone 2 in docs and status framing
+- continuing Milestone 3 manual-workflow usability improvements
+- keeping later milestones scoped without weakening boundaries
 
 ---
 
