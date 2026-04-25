@@ -60,6 +60,42 @@ def test_list_positions_can_filter_by_lifecycle_state() -> None:
     ]
 
 
+def test_list_positions_supports_purpose_review_filters_and_sort_modes() -> None:
+    """Position lists can filter by purpose, review state, and sort newest first."""
+    workflow = _workflow()
+    reviewed_position = workflow.open_position(purpose="swing")
+    unreviewed_position = workflow.open_position(purpose="day_trade")
+    workflow.fill_service.record_manual_fill(
+        position_id=reviewed_position.id,
+        side="buy",
+        quantity=Decimal("100"),
+        price=Decimal("20"),
+    )
+    workflow.fill_service.record_manual_fill(
+        position_id=reviewed_position.id,
+        side="sell",
+        quantity=Decimal("100"),
+        price=Decimal("22"),
+    )
+    workflow.review_service.create_trade_review(
+        position_id=reviewed_position.id,
+        summary="Reviewed trade.",
+        what_went_well="Entry was clear.",
+        what_went_poorly="Exit was late.",
+    )
+
+    assert [position.id for position in workflow.query.list_positions(purpose="swing")] == [
+        reviewed_position.id
+    ]
+    assert [position.id for position in workflow.query.list_positions(has_review=True)] == [
+        reviewed_position.id
+    ]
+    assert [
+        position.id
+        for position in workflow.query.list_positions(has_review=False, sort="newest")
+    ] == [unreviewed_position.id]
+
+
 def test_get_position_detail_returns_linked_records() -> None:
     """Position detail includes linked idea, plan, order intents, fills, and review."""
     workflow = _workflow()
@@ -227,11 +263,11 @@ class _Workflow:
             lifecycle_event_repository=self.lifecycle_events,
         )
 
-    def open_position(self) -> Position:
+    def open_position(self, *, purpose: str = "swing") -> Position:
         idea = self.planning.create_trade_idea(
             instrument_id=uuid4(),
             playbook_id=uuid4(),
-            purpose="swing",
+            purpose=purpose,
             direction="long",
             horizon="days_to_weeks",
         )

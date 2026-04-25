@@ -290,6 +290,53 @@ def test_order_intent_can_round_trip_independently(tmp_path) -> None:
     assert build_json_repositories(store_path).order_intents.get(order_intent.id) == order_intent
 
 
+def test_order_intent_canceled_status_can_round_trip_independently(tmp_path) -> None:
+    """Order intent repository preserves the canceled status enum value."""
+    store_path = tmp_path / "store.json"
+    order_intent = OrderIntent(
+        trade_plan_id=uuid4(),
+        symbol="AAPL",
+        side=OrderSide.BUY,
+        order_type=OrderType.LIMIT,
+        quantity=Decimal("12.5"),
+        status=OrderIntentStatus.CANCELED,
+    )
+    build_json_repositories(store_path).order_intents.add(order_intent)
+
+    assert build_json_repositories(store_path).order_intents.get(order_intent.id) == order_intent
+
+
+def test_order_intent_update_survives_repository_reload(tmp_path) -> None:
+    """Order intent updates persist after recreating JSON repositories."""
+    store_path = tmp_path / "store.json"
+    repositories = build_json_repositories(store_path)
+    order_intent = OrderIntent(
+        trade_plan_id=uuid4(),
+        symbol="AAPL",
+        side=OrderSide.BUY,
+        order_type=OrderType.LIMIT,
+        quantity=Decimal("12.5"),
+        status=OrderIntentStatus.CREATED,
+    )
+    repositories.order_intents.add(order_intent)
+    updated_order_intent = OrderIntent(
+        id=order_intent.id,
+        trade_plan_id=order_intent.trade_plan_id,
+        symbol=order_intent.symbol,
+        side=order_intent.side,
+        order_type=order_intent.order_type,
+        quantity=order_intent.quantity,
+        limit_price=order_intent.limit_price,
+        stop_price=order_intent.stop_price,
+        status=OrderIntentStatus.CANCELED,
+        created_at=order_intent.created_at,
+        notes=order_intent.notes,
+    )
+
+    repositories.order_intents.update(updated_order_intent)
+
+    assert build_json_repositories(store_path).order_intents.get(order_intent.id) == updated_order_intent
+
 def test_fill_with_order_intent_id_can_round_trip(tmp_path) -> None:
     """Fill repository preserves optional order-intent linkage."""
     store_path = tmp_path / "store.json"
@@ -448,3 +495,31 @@ def test_trade_review_repository_list_all_survives_reload(tmp_path) -> None:
 
     assert reloaded.reviews.get(review.id) == review
     assert reloaded.reviews.list_all() == [review]
+
+
+def test_trade_thesis_repository_list_all_survives_reload(tmp_path) -> None:
+    """Thesis repository list methods return persisted theses after reload."""
+    store_path = tmp_path / "store.json"
+    repositories = build_json_repositories(store_path)
+    planning = TradePlanningService(
+        repositories.ideas,
+        repositories.theses,
+        repositories.plans,
+    )
+    idea = planning.create_trade_idea(
+        instrument_id=uuid4(),
+        playbook_id=uuid4(),
+        purpose="swing",
+        direction="long",
+        horizon="days_to_weeks",
+    )
+    thesis = planning.create_trade_thesis(
+        trade_idea_id=idea.id,
+        reasoning="Setup has a clear catalyst.",
+        supporting_evidence=["volume expansion"],
+    )
+
+    reloaded = build_json_repositories(store_path)
+
+    assert reloaded.theses.get(thesis.id) == thesis
+    assert reloaded.theses.list_all() == [thesis]

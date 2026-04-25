@@ -1,5 +1,6 @@
 """Tests for read-only trade review retrieval workflows."""
 
+from datetime import timedelta
 from decimal import Decimal
 from uuid import uuid4
 
@@ -32,6 +33,36 @@ def test_list_trade_reviews_returns_reviews_in_reviewed_order() -> None:
     assert [item.review.id for item in items] == [first_review.id, second_review.id]
     assert items[0].trade_idea.purpose == "swing"
     assert items[0].trade_idea.direction == "long"
+
+
+def test_list_trade_reviews_supports_exact_filters_and_sort_modes() -> None:
+    """Review list filters by linked idea context, rating, and chronology."""
+    workflow = _Workflow()
+    first_review = workflow.create_closed_review(
+        "First review.",
+        purpose="swing",
+        direction="long",
+        rating=4,
+    )
+    second_review = workflow.create_closed_review(
+        "Second review.",
+        purpose="day_trade",
+        direction="short",
+        rating=2,
+    )
+    second_review.reviewed_at = first_review.reviewed_at + timedelta(seconds=1)
+
+    filtered = workflow.query.list_trade_reviews(
+        rating=4,
+        purpose="swing",
+        direction="long",
+    )
+
+    assert [item.review.id for item in filtered] == [first_review.id]
+    assert [item.review.id for item in workflow.query.list_trade_reviews(sort="newest")] == [
+        second_review.id,
+        first_review.id,
+    ]
 
 
 def test_get_trade_review_detail_returns_linked_trade_context() -> None:
@@ -90,12 +121,19 @@ class _Workflow:
             fill_repository=self.fills,
         )
 
-    def create_closed_review(self, summary: str):
+    def create_closed_review(
+        self,
+        summary: str,
+        *,
+        purpose: str = "swing",
+        direction: str = "long",
+        rating: int | None = None,
+    ):
         idea = self.planning.create_trade_idea(
             instrument_id=uuid4(),
             playbook_id=uuid4(),
-            purpose="swing",
-            direction="long",
+            purpose=purpose,
+            direction=direction,
             horizon="days_to_weeks",
         )
         thesis = self.planning.create_trade_thesis(
@@ -128,6 +166,7 @@ class _Workflow:
             summary=summary,
             what_went_well="Entry was clean.",
             what_went_poorly="Exit could be faster.",
+            rating=rating,
         )
 
 
@@ -142,4 +181,3 @@ class _NoOpLifecycleEventRepository:
 class _NoOpOrderIntentRepository:
     def get(self, order_intent_id):
         return None
-

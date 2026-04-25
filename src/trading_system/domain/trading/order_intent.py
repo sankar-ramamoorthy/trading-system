@@ -27,6 +27,7 @@ class OrderIntentStatus(StrEnum):
     """Minimal lifecycle states for persisted execution intent."""
 
     CREATED = "created"
+    CANCELED = "canceled"
 
 
 @dataclass(frozen=True)

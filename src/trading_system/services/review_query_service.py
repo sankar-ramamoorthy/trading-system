@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from trading_system.domain.trading.fill import Fill
@@ -56,13 +57,29 @@ class ReviewQueryService:
         self._ideas = idea_repository
         self._fills = fill_repository
 
-    def list_trade_reviews(self) -> list[TradeReviewListItem]:
-        """Return persisted trade reviews with linked upstream trade context."""
+    def list_trade_reviews(
+        self,
+        rating: int | None = None,
+        purpose: str | None = None,
+        direction: str | None = None,
+        sort: Literal["oldest", "newest"] = "oldest",
+    ) -> list[TradeReviewListItem]:
+        """Return persisted trade reviews with exact filters and chronological sorting."""
         items = [
             self._build_list_item(review)
             for review in self._reviews.list_all()
         ]
-        return sorted(items, key=lambda item: item.review.reviewed_at)
+        if rating is not None:
+            items = [item for item in items if item.review.rating == rating]
+        if purpose is not None:
+            items = [item for item in items if item.trade_idea.purpose == purpose]
+        if direction is not None:
+            items = [item for item in items if item.trade_idea.direction == direction]
+        return sorted(
+            items,
+            key=lambda item: item.review.reviewed_at,
+            reverse=sort == "newest",
+        )
 
     def get_trade_review_detail(self, review_id: UUID) -> TradeReviewDetail:
         """Return one trade review with linked position, plan, and idea records."""
