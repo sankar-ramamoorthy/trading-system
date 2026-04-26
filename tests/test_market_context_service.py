@@ -17,6 +17,7 @@ from trading_system.infrastructure.memory.repositories import (
     InMemoryTradeReviewRepository,
     InMemoryTradeThesisRepository,
 )
+from trading_system.domain.trading.market_context import MarketContextSnapshot
 from trading_system.ports.market_context import ImportedMarketContext
 from trading_system.services.fill_service import FillService
 from trading_system.services.market_context_service import (
@@ -135,6 +136,120 @@ def test_import_context_does_not_mutate_canonical_trade_records() -> None:
     assert workflow.positions.list_all() == []
 
 
+def test_list_snapshots_supports_discovery_filters() -> None:
+    """Context query filters compose across identity, metadata, and date ranges."""
+    workflow = _Workflow()
+    instrument_id = uuid4()
+    other_instrument_id = uuid4()
+    plan_id = uuid4()
+    first = workflow.add_snapshot(
+        instrument_id=instrument_id,
+        target_type="TradePlan",
+        target_id=plan_id,
+        context_type="price_snapshot",
+        source="local-file",
+        observed_at=datetime(2026, 4, 1, 16, 0, tzinfo=UTC),
+        captured_at=datetime(2026, 4, 1, 16, 5, tzinfo=UTC),
+    )
+    second = workflow.add_snapshot(
+        instrument_id=instrument_id,
+        target_type="TradePlan",
+        target_id=plan_id,
+        context_type="calendar",
+        source="manual-note",
+        observed_at=datetime(2026, 4, 2, 16, 0, tzinfo=UTC),
+        captured_at=datetime(2026, 4, 2, 16, 5, tzinfo=UTC),
+    )
+    workflow.add_snapshot(
+        instrument_id=other_instrument_id,
+        target_type="Position",
+        target_id=uuid4(),
+        context_type="price_snapshot",
+        source="local-file",
+        observed_at=datetime(2026, 4, 3, 16, 0, tzinfo=UTC),
+        captured_at=datetime(2026, 4, 3, 16, 5, tzinfo=UTC),
+    )
+
+    assert workflow.query_service.list_snapshots() == [first, second, workflow.last_snapshot]
+    assert workflow.query_service.list_snapshots(context_type="calendar") == [second]
+    assert workflow.query_service.list_snapshots(source="local-file") == [
+        first,
+        workflow.last_snapshot,
+    ]
+    assert workflow.query_service.list_snapshots(
+        instrument_id=instrument_id,
+        target_type="TradePlan",
+        target_id=plan_id,
+        observed_from=datetime(2026, 4, 1, 16, 0, tzinfo=UTC),
+        observed_to=datetime(2026, 4, 2, 16, 0, tzinfo=UTC),
+        captured_from=datetime(2026, 4, 1, 16, 5, tzinfo=UTC),
+        captured_to=datetime(2026, 4, 2, 16, 5, tzinfo=UTC),
+    ) == [first, second]
+
+
+def test_list_snapshots_rejects_partial_target_filter() -> None:
+    """Target discovery filters require both target fields."""
+    workflow = _Workflow()
+
+    with pytest.raises(ValueError, match="Target type and target id"):
+        workflow.query_service.list_snapshots(target_type="TradePlan")
+
+
+def test_copy_context_to_target_creates_new_linked_snapshot_without_mutating_original() -> None:
+    """Copying context preserves source data and creates a new immutable target link."""
+    workflow = _Workflow()
+    instrument_id = uuid4()
+    original = workflow.import_service.import_context(
+        _Source(),
+        source="local-file",
+        source_ref="context.json",
+        instrument_id=instrument_id,
+    )
+    plan_id = workflow.create_approved_plan(instrument_id=instrument_id)
+
+    copied = workflow.import_service.copy_context_to_target(
+        original.id,
+        target_type="TradePlan",
+        target_id=plan_id,
+    )
+
+    assert copied.id != original.id
+    assert copied.instrument_id == original.instrument_id
+    assert copied.context_type == original.context_type
+    assert copied.source == original.source
+    assert copied.source_ref == original.source_ref
+    assert copied.observed_at == original.observed_at
+    assert copied.payload == original.payload
+    assert copied.target_type == "TradePlan"
+    assert copied.target_id == plan_id
+    assert workflow.query_service.get_snapshot(original.id).target_type is None
+    assert workflow.query_service.list_by_target("TradePlan", plan_id) == [copied]
+
+
+def test_copy_context_to_target_rejects_missing_snapshot_and_mismatched_target() -> None:
+    """Copying validates the source snapshot and target instrument boundary."""
+    workflow = _Workflow()
+    original = workflow.import_service.import_context(
+        _Source(),
+        source="local-file",
+        instrument_id=uuid4(),
+    )
+    plan_id = workflow.create_approved_plan(instrument_id=uuid4())
+
+    with pytest.raises(ValueError, match="Market context snapshot does not exist"):
+        workflow.import_service.copy_context_to_target(
+            uuid4(),
+            target_type="TradePlan",
+            target_id=plan_id,
+        )
+    with pytest.raises(ValueError, match="Instrument id does not match"):
+        workflow.import_service.copy_context_to_target(
+            original.id,
+            target_type="TradePlan",
+            target_id=plan_id,
+        )
+
+
 class _Source:
     def __init__(self, context_type: str = "price_snapshot") -> None:
         self._context_type = context_type
@@ -168,9 +283,9 @@ class _Workflow:
         )
         self.query_service = MarketContextQueryService(self.snapshots)
 
-    def create_approved_plan(self):
+    def create_approved_plan(self, *, instrument_id=None):
         idea = self.planning.create_trade_idea(
-            instrument_id=uuid4(),
+            instrument_id=instrument_id or uuid4(),
             playbook_id=uuid4(),
             purpose="swing",
             direction="long",
@@ -188,6 +303,31 @@ class _Workflow:
             risk_model="Defined stop and max loss.",
         )
         return self.planning.approve_trade_plan(plan.id).id
+
+    def add_snapshot(
+        self,
+        *,
+        instrument_id,
+        target_type,
+        target_id,
+        context_type,
+        source,
+        observed_at,
+        captured_at,
+    ) -> MarketContextSnapshot:
+        snapshot = MarketContextSnapshot(
+            instrument_id=instrument_id,
+            target_type=target_type,
+            target_id=target_id,
+            context_type=context_type,
+            source=source,
+            observed_at=observed_at,
+            captured_at=captured_at,
+            payload={"symbol": "AAPL"},
+        )
+        self.snapshots.add(snapshot)
+        self.last_snapshot = snapshot
+        return snapshot
 
     def open_position(self, plan_id):
         return PositionService(

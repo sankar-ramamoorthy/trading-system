@@ -357,6 +357,16 @@ class JsonMarketContextSnapshotRepository:
         record = self._store.get("market_context_snapshots", snapshot_id)
         return None if record is None else _market_context_snapshot_from_record(record)
 
+    def list_all(self) -> list[MarketContextSnapshot]:
+        """Return all market context snapshots."""
+        return sorted(
+            [
+                _market_context_snapshot_from_record(record)
+                for record in self._store.read()["market_context_snapshots"].values()
+            ],
+            key=lambda snapshot: snapshot.captured_at,
+        )
+
     def list_by_instrument_id(self, instrument_id: UUID) -> list[MarketContextSnapshot]:
         """Return snapshots for one instrument."""
         return sorted(

@@ -167,6 +167,10 @@ class MarketContextSnapshotRepository(Protocol):
         """Return a market context snapshot by identity."""
         ...
 
+    def list_all(self) -> list[MarketContextSnapshot]:
+        """Return all market context snapshots."""
+        ...
+
     def list_by_instrument_id(self, instrument_id: UUID) -> list[MarketContextSnapshot]:
         """Return snapshots for one instrument."""
         ...

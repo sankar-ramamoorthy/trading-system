@@ -32,6 +32,7 @@ def test_market_context_snapshot_survives_repository_reload(tmp_path) -> None:
     reloaded = build_json_repositories(store_path).market_context_snapshots
 
     assert reloaded.get(snapshot.id) == snapshot
+    assert reloaded.list_all() == [snapshot]
     assert reloaded.list_by_instrument_id(instrument_id) == [snapshot]
     assert reloaded.list_by_target("TradePlan", target_id) == [snapshot]
 

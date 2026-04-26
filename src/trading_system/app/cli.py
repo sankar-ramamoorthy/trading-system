@@ -1042,14 +1042,31 @@ def import_context(
             target_id=None if target_id is None else _parse_uuid(target_id),
         )
     )
-    typer.echo(f"market_context_snapshot_id: {snapshot.id}")
-    typer.echo(f"instrument_id: {snapshot.instrument_id}")
-    typer.echo(f"context_type: {snapshot.context_type}")
-    typer.echo(f"source: {snapshot.source}")
-    typer.echo(f"observed_at: {snapshot.observed_at.isoformat()}")
-    typer.echo(f"captured_at: {snapshot.captured_at.isoformat()}")
-    typer.echo(f"target_type: {_format_optional_text(snapshot.target_type)}")
-    typer.echo(f"target_id: {_format_optional_show_value(snapshot.target_id)}")
+    _echo_context_snapshot_result(snapshot)
+
+
+@app.command("copy-context")
+def copy_context(
+    snapshot_id: str,
+    target_type: ContextTargetOption = typer.Option(..., "--target-type"),
+    target_id: str = typer.Option(..., "--target-id"),
+) -> None:
+    """Copy an existing context snapshot to a planning or review target."""
+    repositories = _repositories()
+    snapshot = _run_service(
+        lambda: MarketContextImportService(
+            snapshot_repository=repositories.market_context_snapshots,
+            plan_repository=repositories.plans,
+            position_repository=repositories.positions,
+            review_repository=repositories.reviews,
+            idea_repository=repositories.ideas,
+        ).copy_context_to_target(
+            _parse_uuid(snapshot_id),
+            target_type=_context_target_type(target_type),
+            target_id=_parse_uuid(target_id),
+        )
+    )
+    _echo_context_snapshot_result(snapshot)
 
 
 @app.command("list-context")
@@ -1057,6 +1074,12 @@ def list_context(
     instrument_id: str | None = typer.Option(None, "--instrument-id"),
     target_type: ContextTargetOption | None = typer.Option(None, "--target-type"),
     target_id: str | None = typer.Option(None, "--target-id"),
+    context_type: str | None = typer.Option(None, "--context-type"),
+    source: str | None = typer.Option(None, "--source"),
+    observed_from: str | None = typer.Option(None, "--observed-from"),
+    observed_to: str | None = typer.Option(None, "--observed-to"),
+    captured_from: str | None = typer.Option(None, "--captured-from"),
+    captured_to: str | None = typer.Option(None, "--captured-to"),
 ) -> None:
     """List stored read-only market context snapshots."""
     query_service = _market_context_query_service()
@@ -1066,6 +1089,12 @@ def list_context(
             instrument_id=instrument_id,
             target_type=target_type,
             target_id=target_id,
+            context_type=context_type,
+            source=source,
+            observed_from=observed_from,
+            observed_to=observed_to,
+            captured_from=captured_from,
+            captured_to=captured_to,
         )
     )
     if not snapshots:
@@ -1210,6 +1239,16 @@ def _parse_decimal(value: str) -> Decimal:
         raise typer.BadParameter("must be a valid decimal") from exc
 
 
+def _parse_optional_context_datetime(value: str | None) -> datetime | None:
+    """Parse optional ISO datetime filters with a clear Typer error."""
+    if value is None:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise typer.BadParameter("must be a valid ISO datetime") from exc
+
+
 def _context_target_type(value: ContextTargetOption) -> str:
     """Map CLI target names to canonical domain type labels."""
     return {
@@ -1225,19 +1264,27 @@ def _list_context_snapshots(
     instrument_id: str | None,
     target_type: ContextTargetOption | None,
     target_id: str | None,
+    context_type: str | None,
+    source: str | None,
+    observed_from: str | None,
+    observed_to: str | None,
+    captured_from: str | None,
+    captured_to: str | None,
 ):
-    """Resolve mutually exclusive context list filters."""
-    has_instrument = instrument_id is not None
-    has_target = target_type is not None or target_id is not None
-    if has_instrument == has_target:
-        raise ValueError("Provide either --instrument-id or --target-type with --target-id.")
-    if has_instrument:
-        return query_service.list_by_instrument_id(_parse_uuid(instrument_id))
+    """Resolve optional context list filters."""
     if target_type is None or target_id is None:
-        raise ValueError("Target type and target id must be provided together.")
-    return query_service.list_by_target(
-        _context_target_type(target_type),
-        _parse_uuid(target_id),
+        if target_type is not None or target_id is not None:
+            raise ValueError("Target type and target id must be provided together.")
+    return query_service.list_snapshots(
+        instrument_id=None if instrument_id is None else _parse_uuid(instrument_id),
+        target_type=None if target_type is None else _context_target_type(target_type),
+        target_id=None if target_id is None else _parse_uuid(target_id),
+        context_type=context_type,
+        source=source,
+        observed_from=_parse_optional_context_datetime(observed_from),
+        observed_to=_parse_optional_context_datetime(observed_to),
+        captured_from=_parse_optional_context_datetime(captured_from),
+        captured_to=_parse_optional_context_datetime(captured_to),
     )
 
 
@@ -1337,6 +1384,18 @@ def _echo_market_context_section(snapshots: list[MarketContextSnapshot]) -> None
             for snapshot in snapshots
         ],
     )
+
+
+def _echo_context_snapshot_result(snapshot: MarketContextSnapshot) -> None:
+    """Print a compact market context result for command chaining."""
+    typer.echo(f"market_context_snapshot_id: {snapshot.id}")
+    typer.echo(f"instrument_id: {snapshot.instrument_id}")
+    typer.echo(f"context_type: {snapshot.context_type}")
+    typer.echo(f"source: {snapshot.source}")
+    typer.echo(f"observed_at: {snapshot.observed_at.isoformat()}")
+    typer.echo(f"captured_at: {snapshot.captured_at.isoformat()}")
+    typer.echo(f"target_type: {_format_optional_text(snapshot.target_type)}")
+    typer.echo(f"target_id: {_format_optional_show_value(snapshot.target_id)}")
 
 
 def _echo_order_intent(order_intent: OrderIntent) -> None:

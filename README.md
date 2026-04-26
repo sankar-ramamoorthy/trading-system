@@ -192,12 +192,15 @@ uv run trading-system import-context .\context.json --instrument-id <instrument-
 uv run trading-system import-context .\context.json --target-type trade-plan --target-id <trade-plan-id>
 uv run trading-system import-context .\context.json --target-type position --target-id <position-id>
 uv run trading-system import-context .\context.json --target-type trade-review --target-id <trade-review-id>
+uv run trading-system copy-context <market-context-snapshot-id> --target-type trade-plan --target-id <trade-plan-id>
+uv run trading-system list-context
 uv run trading-system list-context --instrument-id <instrument-id>
 uv run trading-system list-context --target-type trade-plan --target-id <trade-plan-id>
+uv run trading-system list-context --context-type price_snapshot --source local-file --observed-from 2026-04-26T00:00:00+00:00 --observed-to 2026-04-26T23:59:59+00:00
 uv run trading-system show-context <market-context-snapshot-id>
 ```
 
-Linked snapshots also appear as metadata-only `Market context` sections in `show-trade-plan`, `show-position`, and `show-trade-review`. Use `show-context` when you need to inspect the full stored payload.
+Linked snapshots also appear as metadata-only `Market context` sections in `show-trade-plan`, `show-position`, and `show-trade-review`. Use `show-context` when you need to inspect the full stored payload. `copy-context` creates a new linked snapshot from an existing one; it does not mutate the original import.
 
 External providers such as yfinance are not implemented yet. They should be added later behind the context source port and documented with an ADR before use.
 

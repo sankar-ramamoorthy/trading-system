@@ -207,6 +207,13 @@ class InMemoryMarketContextSnapshotRepository:
         """Return a market context snapshot by identity."""
         return self.items.get(snapshot_id)
 
+    def list_all(self) -> list[MarketContextSnapshot]:
+        """Return all market context snapshots."""
+        return sorted(
+            self.items.values(),
+            key=lambda snapshot: snapshot.captured_at,
+        )
+
     def list_by_instrument_id(self, instrument_id: UUID) -> list[MarketContextSnapshot]:
         """Return snapshots for one instrument."""
         return sorted(

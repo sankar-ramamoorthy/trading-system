@@ -219,6 +219,117 @@ def test_list_context_by_instrument_and_target(tmp_path) -> None:
     assert str(trade_plan_id) in by_target.output
 
 
+def test_list_context_supports_broad_discovery_filters(tmp_path) -> None:
+    """The CLI can discover snapshots without requiring an instrument or target."""
+    store_path = tmp_path / "store.json"
+    price_path = _write_context_file(
+        tmp_path,
+        filename="price.json",
+        context_type="price_snapshot",
+        observed_at="2026-04-26T16:00:00+00:00",
+    )
+    calendar_path = _write_context_file(
+        tmp_path,
+        filename="calendar.json",
+        context_type="calendar",
+        observed_at="2026-04-27T16:00:00+00:00",
+    )
+    instrument_id = uuid4()
+    first = _import_context(
+        store_path,
+        price_path,
+        instrument_id=instrument_id,
+        source="local-file",
+    )
+    second = _import_context(
+        store_path,
+        calendar_path,
+        instrument_id=instrument_id,
+        source="manual-note",
+    )
+    first_snapshot_id = _lines(first.output)[0].split(": ")[1]
+    second_snapshot_id = _lines(second.output)[0].split(": ")[1]
+
+    all_snapshots = runner.invoke(
+        app,
+        ["list-context"],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+    filtered = runner.invoke(
+        app,
+        [
+            "list-context",
+            "--context-type",
+            "calendar",
+            "--source",
+            "manual-note",
+            "--observed-from",
+            "2026-04-27T16:00:00+00:00",
+            "--observed-to",
+            "2026-04-27T16:00:00+00:00",
+            "--captured-from",
+            "2026-01-01T00:00:00+00:00",
+            "--captured-to",
+            "2026-12-31T23:59:59+00:00",
+        ],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert all_snapshots.exit_code == 0
+    assert first_snapshot_id in all_snapshots.output
+    assert second_snapshot_id in all_snapshots.output
+    assert filtered.exit_code == 0
+    assert second_snapshot_id in filtered.output
+    assert first_snapshot_id not in filtered.output
+
+
+def test_copy_context_creates_linked_snapshot_visible_in_detail_view(tmp_path) -> None:
+    """The CLI copies an imported snapshot to a target without mutating the original."""
+    store_path = tmp_path / "store.json"
+    context_path = _write_context_file(tmp_path)
+    repositories = build_json_repositories(store_path)
+    trade_plan_id = _create_plan(repositories)
+    plan = repositories.plans.get(trade_plan_id)
+    instrument_id = repositories.ideas.get(plan.trade_idea_id).instrument_id
+    imported = _import_context(
+        store_path,
+        context_path,
+        instrument_id=instrument_id,
+    )
+    original_snapshot_id = _lines(imported.output)[0].split(": ")[1]
+
+    copied = runner.invoke(
+        app,
+        [
+            "copy-context",
+            original_snapshot_id,
+            "--target-type",
+            "trade-plan",
+            "--target-id",
+            str(trade_plan_id),
+        ],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+    copied_snapshot_id = _lines(copied.output)[0].split(": ")[1]
+    original = runner.invoke(
+        app,
+        ["show-context", original_snapshot_id],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+    detail = runner.invoke(
+        app,
+        ["show-trade-plan", str(trade_plan_id)],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert copied.exit_code == 0
+    assert copied_snapshot_id != original_snapshot_id
+    assert f"target_id: {trade_plan_id}" in copied.output
+    assert "target_type: " in original.output
+    assert f"market_context_snapshot_id: {copied_snapshot_id}" in detail.output
+    assert original_snapshot_id not in detail.output
+
+
 def test_list_context_empty_state_and_filter_validation(tmp_path) -> None:
     """Context list output has stable empty and validation messages."""
     store_path = tmp_path / "store.json"
@@ -230,14 +341,21 @@ def test_list_context_empty_state_and_filter_validation(tmp_path) -> None:
     )
     invalid = runner.invoke(
         app,
-        ["list-context"],
+        ["list-context", "--target-type", "trade-plan"],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+    invalid_datetime = runner.invoke(
+        app,
+        ["list-context", "--observed-from", "not-a-date"],
         env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
     )
 
     assert empty.exit_code == 0
     assert empty.output == "No market context snapshots found.\n"
     assert invalid.exit_code != 0
-    assert "Provide either --instrument-id or --target-type with --target-id" in invalid.output
+    assert "Target type and target id must be provided together" in invalid.output
+    assert invalid_datetime.exit_code != 0
+    assert "must be a valid ISO datetime" in invalid_datetime.output
 
 
 def test_import_context_rejects_missing_target(tmp_path) -> None:
@@ -262,18 +380,24 @@ def test_import_context_rejects_missing_target(tmp_path) -> None:
     assert "Trade plan does not exist for context target" in result.output
 
 
-def _write_context_file(tmp_path):
-    context_path = tmp_path / "context.json"
+def _write_context_file(
+    tmp_path,
+    *,
+    filename: str = "context.json",
+    context_type: str = "price_snapshot",
+    observed_at: str = "2026-04-26T16:00:00+00:00",
+):
+    context_path = tmp_path / filename
     context_path.write_text(
-        """
-        {
-          "context_type": "price_snapshot",
-          "observed_at": "2026-04-26T16:00:00+00:00",
-          "payload": {
+        f"""
+        {{
+          "context_type": "{context_type}",
+          "observed_at": "{observed_at}",
+          "payload": {{
             "symbol": "AAPL",
             "last": "185.25"
-          }
-        }
+          }}
+        }}
         """,
         encoding="utf-8",
     )
@@ -307,17 +431,25 @@ def _create_plan(repositories):
     return planning.approve_trade_plan(plan.id).id
 
 
-def _import_context(store_path, context_path, *, target_type: str, target_id):
+def _import_context(
+    store_path,
+    context_path,
+    *,
+    target_type: str | None = None,
+    target_id=None,
+    instrument_id=None,
+    source: str = "local-file",
+):
+    args = ["import-context", str(context_path), "--source", source]
+    if target_type is not None:
+        args.extend(["--target-type", target_type])
+    if target_id is not None:
+        args.extend(["--target-id", str(target_id)])
+    if instrument_id is not None:
+        args.extend(["--instrument-id", str(instrument_id)])
     return runner.invoke(
         app,
-        [
-            "import-context",
-            str(context_path),
-            "--target-type",
-            target_type,
-            "--target-id",
-            str(target_id),
-        ],
+        args,
         env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
     )
 
