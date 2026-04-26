@@ -5,12 +5,12 @@
 
 ## Project Status
 
-This repository is transitioning from design into initial implementation.
+This repository is in incremental implementation through thin vertical slices.
 
 Authoritative documents:
 
 * `README.md`
-* `DOCS/system-blueprint.md`
+* `DOCS/systems-blueprint.md`
 * `DOCS/domain-model.md`
 * `DOCS/ADR/`
 
@@ -87,11 +87,11 @@ Allowed entities for initial implementation:
 * TradeReview
 * LifecycleEvent
 
-Explicitly defer:
+Explicitly defer outside the active milestone slice:
 
 * broker integration
-* market data ingestion
-* context ingestion
+* live market data streaming
+* broad context ingestion
 * AI or ML features
 * reconciliation systems
 
@@ -243,4 +243,3 @@ Every implementation choice should support:
 * long-term maintainability
 
 ---
-
