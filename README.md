@@ -78,6 +78,7 @@ See:
 - `DOCS/milestone-2-roadmap.md`
 - `DOCS/milestones-3-to-5-roadmap.md`
 - `DOCS/milestone-4-market-context-design.md`
+- `DOCS/milestone-4-summary.md`
 - `DOCS/milestone-5-review-learning-and-local-ops-design.md`
 
 ---
@@ -169,7 +170,7 @@ uv run trading-system show-position-timeline <position-id>
 
 ### Read-Only Market Context
 
-Milestone 4 begins with explicit local JSON file import for market/context snapshots. Context is advisory support for planning and review; it does not change trade plans, positions, reviews, rules, fills, or lifecycle state.
+Milestone 4 delivered explicit local JSON file import for market/context snapshots. Context is advisory support for planning and review; it does not change trade plans, positions, reviews, rules, fills, or lifecycle state.
 
 Example context file:
 

@@ -2,14 +2,15 @@
 
 ## Current Milestone
 
-Milestone 4 - Read-only market context
+Milestone 5 - Review, learning, and local operations
 
 ## Implementation State
 
 - Milestone 1: complete (MVP)
 - Milestone 2: complete (core workflow extensions)
 - Milestone 3: complete (manual workflow usability)
-- Milestone 4: started
+- Milestone 4: complete (read-only market context)
+- Milestone 5: started
 
 The system is currently a functional, CLI-driven, manual trading workflow with local JSON persistence and lifecycle tracking.
 
@@ -43,9 +44,9 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - Domain model is the source of truth for trade meaning
 - External data must remain read-only and non-canonical
 
-## Active Slice (Milestone 4 Follow-Up)
+## Completed Slice (Milestone 4)
 
-Evaluate whether the implemented local snapshot workflow is sufficient for Milestone 4 closeout:
+Milestone 4 is closed with the implemented local snapshot workflow:
 
 - Context snapshots are imported from explicit local JSON files
 - Snapshots can be attached to an instrument, trade plan, position, or trade review target
@@ -56,6 +57,10 @@ Evaluate whether the implemented local snapshot workflow is sufficient for Miles
 - Context informs decisions but does not define trade meaning
 - External provider adapters such as yfinance remain deferred
 
+## Active Slice (Milestone 5)
+
+Select the first narrow Milestone 5 implementation slice for review, reporting, export, or local operations.
+
 ## Immediate Design Guardrails
 
 - Do not couple context data to domain entities as canonical trade meaning
@@ -64,6 +69,7 @@ Evaluate whether the implemented local snapshot workflow is sufficient for Miles
 - Keep all context interactions explicit and user-invoked
 - Preserve auditability of retrieved context
 - Add an ADR before introducing an external market data provider
+- Keep Milestone 5 reporting and export work narrow, local-first, and journal-grade
 
 ## Architecture Reference (Current)
 

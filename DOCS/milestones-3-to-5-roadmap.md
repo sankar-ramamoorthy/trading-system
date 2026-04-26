@@ -10,7 +10,10 @@ tags: [roadmap, milestone-3, milestone-4, milestone-5, trading-system]
 ## Current Status
 
 - Milestone 1 is complete.
-- Milestone 2 is largely implemented and is being finalized through polish and documentation alignment.
+- Milestone 2 is complete.
+- Milestone 3 is complete.
+- Milestone 4 is complete.
+- Milestone 5 is the active milestone.
 
 ## Accepted Sequence
 
@@ -93,6 +96,14 @@ Introduce read-only market and context support that helps planning and review wh
 - external context remains read-only and non-canonical
 - the system can preserve enough context locally for audit and retrospective use
 - milestone scope does not expand into automation or integration sprawl
+
+### Closeout Status
+
+Milestone 4 is complete as of 2026-04-26.
+
+The implementation uses explicit local JSON imports stored as immutable `MarketContextSnapshot` records. Snapshots can be linked to trade plans, positions, and trade reviews, listed with discovery filters, inspected directly, and copied to a new target without mutating the original snapshot.
+
+External market data providers remain deferred until an ADR records provider status, failure behavior, and non-canonical use.
 
 ## Milestone 5: Review, Learning, And Local Operations
 

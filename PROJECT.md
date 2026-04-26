@@ -2,11 +2,11 @@
 
 ## Current Milestone
 
-Milestone 4 - Read-only market context
+Milestone 5 - Review, learning, and local operations
 
 ## Current Slice
 
-Decide the next Milestone 4 follow-up after local context import, detail surfacing, discovery filters, and copy-to-target support.
+Select the first narrow Milestone 5 slice after closing Milestone 4.
 
 ## Constraints
 
@@ -17,13 +17,15 @@ Decide the next Milestone 4 follow-up after local context import, detail surfaci
 - No broker integration, execution triggers, streaming, or automated plan creation.
 - No AI or ML decision-making.
 - External provider adapters such as yfinance are deferred until an ADR records the provider boundary.
+- Milestone 5 work must stay journal-grade, local-first, explicit, and auditable.
+- Avoid broad portfolio analytics, optimization systems, cloud operations, or generated coaching.
 
 ## Next Steps
 
-- Evaluate whether the current local snapshot workflow is sufficient for Milestone 4 closeout.
-- If another Milestone 4 issue is needed, prefer context export/reporting or payload display ergonomics before external providers.
-- Use the context source port for future provider adapters without coupling services to provider APIs.
-- Add CLI commands and read models only where context remains visibly separate from canonical trade meaning.
+- Choose the first Milestone 5 issue from review tagging/filtering, narrow journal export, or local backup guidance.
+- Keep reporting scoped to completed trades and explicit review records.
+- Preserve the distinction between canonical trade records, read-only market context, and derived read models.
+- Use the context source port for any future provider adapters without coupling services to provider APIs.
 - Add an ADR before implementing yfinance or any other external provider.
 - Keep context output visibly separate from `TradeIdea`, `TradeThesis`, `TradePlan`, `Position`, `Fill`, and `TradeReview` meaning.
 
