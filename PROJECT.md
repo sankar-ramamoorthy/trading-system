@@ -6,7 +6,7 @@ Milestone 4 - Read-only market context
 
 ## Current Slice
 
-Refine the read-only context snapshot workflow so linked snapshots remain visible in planning, position, and review inspection without becoming canonical trade meaning.
+Decide the next Milestone 4 follow-up after local context import, detail surfacing, discovery filters, and copy-to-target support.
 
 ## Constraints
 
@@ -20,7 +20,8 @@ Refine the read-only context snapshot workflow so linked snapshots remain visibl
 
 ## Next Steps
 
-- Keep refining the local JSON file import path and detail-view inspection for timestamped context snapshots.
+- Evaluate whether the current local snapshot workflow is sufficient for Milestone 4 closeout.
+- If another Milestone 4 issue is needed, prefer context export/reporting or payload display ergonomics before external providers.
 - Use the context source port for future provider adapters without coupling services to provider APIs.
 - Add CLI commands and read models only where context remains visibly separate from canonical trade meaning.
 - Add an ADR before implementing yfinance or any other external provider.

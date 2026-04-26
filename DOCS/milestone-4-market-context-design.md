@@ -61,6 +61,12 @@ This keeps the workflow local-first and auditable while introducing the durable 
 - the imported payload remains flexible JSON
 - external providers such as yfinance are deferred until a small ADR records provider status, failure behavior, and non-canonical use
 
+Follow-up slices now add practical discovery and reuse:
+
+- `list-context` supports broad discovery with optional filters for instrument, target, context type, source, observed range, and captured range
+- linked snapshots appear as metadata-only context sections in trade plan, position, and trade review detail views
+- `copy-context` creates a new immutable linked snapshot from an existing one without mutating the original import
+
 ## Non-Goals
 
 - live streaming market data

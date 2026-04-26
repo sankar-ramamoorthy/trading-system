@@ -29,6 +29,8 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - Read-only market context snapshot import from local JSON files
 - CLI inspection of stored market context by instrument or linked target
 - Market context metadata surfaced alongside trade plan, position, and trade review detail views
+- Broad `list-context` discovery filters for context type, source, observed range, and captured range
+- `copy-context` workflow for copying an existing snapshot to a trade plan, position, or trade review target without mutating the original
 
 ## Active Constraints
 
@@ -41,14 +43,16 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - Domain model is the source of truth for trade meaning
 - External data must remain read-only and non-canonical
 
-## Active Slice (Milestone 4 Entry Point)
+## Active Slice (Milestone 4 Follow-Up)
 
-Implement the initial read-only market/context workflow:
+Evaluate whether the implemented local snapshot workflow is sufficient for Milestone 4 closeout:
 
 - Context snapshots are imported from explicit local JSON files
 - Snapshots can be attached to an instrument, trade plan, position, or trade review target
 - Stored snapshots are timestamped and auditable
 - Linked snapshots are visible in planning, position, and review inspection workflows
+- Stored snapshots can be found by context type, source, date, instrument, and linked target
+- Existing snapshots can be copied to a target without mutating the original import
 - Context informs decisions but does not define trade meaning
 - External provider adapters such as yfinance remain deferred
 
