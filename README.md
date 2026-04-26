@@ -209,90 +209,16 @@ The MVP focuses on disciplined, auditable workflow rather than automation.
 
 ---
 
-## Current Capabilities
+## Status
 
-Milestone 1 is complete.
+See `STATUS.md` for current implementation state and next steps.
 
-Milestone 2 is functionally complete in code.
-
-Milestone 3 is complete as the manual-workflow usability milestone.
-
-Current codebase capabilities include:
-
-- durable local JSON persistence
-- trade idea, thesis, and plan workflows
-- plan approval and deterministic rule validation
-- narrow `OrderIntent` support between approved plan and manual fill
-- position opening from approved plans
-- manual fill recording with optional `OrderIntent` linkage
-- execution state tracking and automatic position closure
-- basic realized P&L for closed positions on the read side
-- lifecycle event audit trail and position timeline output
-- explicit CLI write commands for the core workflow
-- read-side CLI commands for trade ideas, trade theses, trade plans, trade reviews, and positions
-- exact-match filtering and `oldest|newest` sorting on the current list commands
-- consistent read-command presentation for headers, empty states, section ordering, and optional values
-- explicit `OrderIntent` cancellation with audit visibility and fill-linkage enforcement
-
----
-
-## What Comes Next
-
-Future work should stay incremental and preserve the current domain boundaries.
-
-The current milestone position is:
-
-- Milestone 2: complete
-- Milestone 3: complete
-- Milestone 4: next
-
-The accepted near-term roadmap after Milestone 2 is:
-
-- **Milestone 3: Manual Workflow Usability**
-  Completed through CLI usability, read-side inspection, filtering/sorting, output consistency, and narrow `OrderIntent` cancellation.
-
-- **Milestone 4: Read-Only Market Context**
-  Add external market and context data as read-only support for planning and review without making it canonical trade meaning.
-
-- **Milestone 5: Review, Learning, and Local Operations**
-  Expand review tagging, filtering, reporting, export, and local operational robustness without turning the system into a portfolio engine.
-
-See `DOCS/milestones-3-to-5-roadmap.md` for the canonical roadmap and the milestone design notes for Milestones 4 and 5.
-
-Still explicitly deferred:
-
-- Postgres as the active backend
-- broker integration
-- FastAPI
-- reinforcement learning
-- live automation
-- dashboards
-- AI decision engines
-
-Reinforcement learning remains exploratory knowledge-base material, not the accepted Milestone 3 plan for this repository.
-
-### What Is Next In Milestone 4
-
-The next concrete work should come from the accepted Milestone 4 design:
-
-- add read-only retrieval of selected market and context inputs
-- keep context local-first through timestamped snapshots or cached references
-- surface context in the CLI alongside planning and review workflows
-- preserve a strict source-of-truth boundary so external context informs decisions without becoming canonical trade meaning
-
-The likely first slice is a narrow read-only context workflow such as:
-
-- fetch or refresh context for an instrument or review target
-- inspect preserved context from the CLI during planning or review
-- keep the stored output explainable, auditable, and non-executing
-
-Milestone 4 should still avoid:
-
-- live streaming market data
-- execution triggers
-- broker integration
-- automated plan creation from external signals
-- turning context ingestion into a general research platform
+| Layer | File | Role |
+| --- | --- | --- |
+| Why | External knowledge base | reasoning, intent, exploration |
+| What (design) | `DOCS/` | architecture and domain |
+| What (current reality) | `STATUS.md` | implementation snapshot |
+| How to use | `README.md` | user and workflow guide |
 
 ---
 
@@ -331,38 +257,6 @@ C:\Users\bosto\dockerstuff\knowledge-base\trading-system\
 ```
 
 It captures canonical entity notes, cross-topic synthesis, processed implementation notes, and exploratory future-direction documents.
-
----
-
-## Status
-
-Milestone 1 is complete.
-
-Milestone 2 is complete.
-
-Milestone 3 is complete.
-
-Milestone 2 and 3 work already present in the repo includes:
-
-- durable local JSON persistence
-- retrieval, review inspection, and timeline commands
-- narrow `OrderIntent`
-- read-side realized P&L
-- explicit CLI write commands
-- practical read-side CLI inspection for ideas, plans, reviews, and positions
-- exact-match list filtering and chronological sort controls
-- explicit `OrderIntent` cancellation with audit events
-
-The currently implemented workflow is:
-
-> intent -> order intent -> execution -> closure -> review
-
-Current focus:
-
-- maintaining domain clarity
-- starting Milestone 4 read-only market context work
-- keeping external context read-only and non-canonical
-- keeping later milestones scoped without weakening boundaries
 
 ---
 
