@@ -28,6 +28,7 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - Explicit `OrderIntent` cancellation with audit visibility and fill-linkage enforcement
 - Read-only market context snapshot import from local JSON files
 - CLI inspection of stored market context by instrument or linked target
+- Market context metadata surfaced alongside trade plan, position, and trade review detail views
 
 ## Active Constraints
 
@@ -47,6 +48,7 @@ Implement the initial read-only market/context workflow:
 - Context snapshots are imported from explicit local JSON files
 - Snapshots can be attached to an instrument, trade plan, position, or trade review target
 - Stored snapshots are timestamped and auditable
+- Linked snapshots are visible in planning, position, and review inspection workflows
 - Context informs decisions but does not define trade meaning
 - External provider adapters such as yfinance remain deferred
 

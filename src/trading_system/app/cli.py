@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 import typer
 
 from trading_system.domain.rules.rule import Rule
+from trading_system.domain.trading.market_context import MarketContextSnapshot
 from trading_system.domain.trading.order_intent import OrderIntent, OrderSide, OrderType
 from trading_system.domain.trading.review import TradeReview
 from trading_system.infrastructure.json.repositories import (
@@ -762,6 +763,7 @@ def show_trade_plan(trade_plan_id: str) -> None:
             for position in detail.positions
         ],
     )
+    _echo_market_context_section(detail.market_context_snapshots)
 
 
 @app.command("list-trade-reviews")
@@ -852,6 +854,7 @@ def show_trade_review(trade_review_id: str) -> None:
             ("horizon", detail.trade_idea.horizon),
         ],
     )
+    _echo_market_context_section(detail.market_context_snapshots)
 
 
 @app.command("list-positions")
@@ -987,6 +990,7 @@ def show_position(position_id: str) -> None:
                 ("summary", detail.review.summary),
             ],
         )
+    _echo_market_context_section(detail.market_context_snapshots)
 
 
 @app.command("show-position-timeline")
@@ -1136,6 +1140,7 @@ def _position_query_service() -> PositionQueryService:
         fill_repository=repositories.fills,
         review_repository=repositories.reviews,
         lifecycle_event_repository=repositories.lifecycle_events,
+        market_context_snapshot_repository=repositories.market_context_snapshots,
     )
 
 
@@ -1149,6 +1154,7 @@ def _trade_query_service() -> TradeQueryService:
         evaluation_repository=repositories.evaluations,
         order_intent_repository=repositories.order_intents,
         position_repository=repositories.positions,
+        market_context_snapshot_repository=repositories.market_context_snapshots,
     )
 
 
@@ -1161,6 +1167,7 @@ def _review_query_service() -> ReviewQueryService:
         plan_repository=repositories.plans,
         idea_repository=repositories.ideas,
         fill_repository=repositories.fills,
+        market_context_snapshot_repository=repositories.market_context_snapshots,
     )
 
 
@@ -1311,6 +1318,25 @@ def _echo_collection_section(
         if index != len(items) - 1:
             typer.echo("")
     typer.echo("")
+
+
+def _echo_market_context_section(snapshots: list[MarketContextSnapshot]) -> None:
+    """Print embedded market context snapshot metadata without payloads."""
+    _echo_collection_section(
+        "Market context",
+        "No market context snapshots found.",
+        [
+            [
+                ("market_context_snapshot_id", snapshot.id),
+                ("context_type", snapshot.context_type),
+                ("source", snapshot.source),
+                ("source_ref", _format_optional_text(snapshot.source_ref)),
+                ("observed_at", snapshot.observed_at.isoformat()),
+                ("captured_at", snapshot.captured_at.isoformat()),
+            ]
+            for snapshot in snapshots
+        ],
+    )
 
 
 def _echo_order_intent(order_intent: OrderIntent) -> None:

@@ -6,9 +6,11 @@ from uuid import uuid4
 import pytest
 
 from trading_system.domain.trading.idea import TradeIdea
+from trading_system.domain.trading.market_context import MarketContextSnapshot
 from trading_system.domain.trading.plan import TradePlan
 from trading_system.domain.trading.thesis import TradeThesis
 from trading_system.infrastructure.memory.repositories import (
+    InMemoryMarketContextSnapshotRepository,
     InMemoryOrderIntentRepository,
     InMemoryPositionRepository,
     InMemoryRuleEvaluationRepository,
@@ -179,6 +181,36 @@ def test_list_trade_plans_supports_exact_filters_and_sort_modes() -> None:
     ]
 
 
+def test_get_trade_plan_detail_includes_only_linked_market_context() -> None:
+    """Plan detail returns context snapshots linked to that trade plan only."""
+    workflow = _Workflow()
+    idea = workflow.add_trade_idea()
+    thesis = workflow.add_trade_thesis(trade_idea_id=idea.id)
+    plan = workflow.add_trade_plan(trade_idea_id=idea.id, trade_thesis_id=thesis.id)
+    older = workflow.add_market_context_snapshot(
+        instrument_id=idea.instrument_id,
+        target_type="TradePlan",
+        target_id=plan.id,
+        captured_at=datetime(2026, 4, 1, tzinfo=UTC),
+    )
+    newer = workflow.add_market_context_snapshot(
+        instrument_id=idea.instrument_id,
+        target_type="TradePlan",
+        target_id=plan.id,
+        captured_at=datetime(2026, 4, 2, tzinfo=UTC),
+    )
+    workflow.add_market_context_snapshot(
+        instrument_id=idea.instrument_id,
+        target_type="Position",
+        target_id=uuid4(),
+        captured_at=datetime(2026, 4, 3, tzinfo=UTC),
+    )
+
+    detail = workflow.query.get_trade_plan_detail(plan.id)
+
+    assert detail.market_context_snapshots == [older, newer]
+
+
 def test_get_trade_thesis_detail_rejects_missing_thesis() -> None:
     """Thesis detail requires an existing persisted thesis."""
     workflow = _Workflow()
@@ -195,6 +227,7 @@ class _Workflow:
         self.evaluations = InMemoryRuleEvaluationRepository()
         self.order_intents = InMemoryOrderIntentRepository()
         self.positions = InMemoryPositionRepository()
+        self.market_context_snapshots = InMemoryMarketContextSnapshotRepository()
         self.query = TradeQueryService(
             idea_repository=self.ideas,
             thesis_repository=self.theses,
@@ -202,6 +235,7 @@ class _Workflow:
             evaluation_repository=self.evaluations,
             order_intent_repository=self.order_intents,
             position_repository=self.positions,
+            market_context_snapshot_repository=self.market_context_snapshots,
         )
 
     def add_trade_idea(
@@ -251,3 +285,24 @@ class _Workflow:
         )
         self.plans.add(plan)
         return plan
+
+    def add_market_context_snapshot(
+        self,
+        *,
+        instrument_id,
+        target_type: str,
+        target_id,
+        captured_at: datetime,
+    ) -> MarketContextSnapshot:
+        snapshot = MarketContextSnapshot(
+            instrument_id=instrument_id,
+            target_type=target_type,
+            target_id=target_id,
+            context_type="price_snapshot",
+            source="test",
+            observed_at=captured_at,
+            captured_at=captured_at,
+            payload={"symbol": "AAPL"},
+        )
+        self.market_context_snapshots.add(snapshot)
+        return snapshot

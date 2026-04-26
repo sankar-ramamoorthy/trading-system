@@ -7,11 +7,13 @@ from uuid import UUID
 
 from trading_system.domain.trading.fill import Fill
 from trading_system.domain.trading.idea import TradeIdea
+from trading_system.domain.trading.market_context import MarketContextSnapshot
 from trading_system.domain.trading.plan import TradePlan
 from trading_system.domain.trading.position import Position
 from trading_system.domain.trading.review import TradeReview
 from trading_system.ports.repositories import (
     FillRepository,
+    MarketContextSnapshotRepository,
     PositionRepository,
     TradeIdeaRepository,
     TradePlanRepository,
@@ -38,6 +40,7 @@ class TradeReviewDetail:
     trade_plan: TradePlan
     trade_idea: TradeIdea
     realized_pnl: Decimal | None
+    market_context_snapshots: list[MarketContextSnapshot]
 
 
 class ReviewQueryService:
@@ -50,12 +53,14 @@ class ReviewQueryService:
         plan_repository: TradePlanRepository,
         idea_repository: TradeIdeaRepository,
         fill_repository: FillRepository,
+        market_context_snapshot_repository: MarketContextSnapshotRepository,
     ) -> None:
         self._reviews = review_repository
         self._positions = position_repository
         self._plans = plan_repository
         self._ideas = idea_repository
         self._fills = fill_repository
+        self._market_context_snapshots = market_context_snapshot_repository
 
     def list_trade_reviews(
         self,
@@ -92,12 +97,17 @@ class ReviewQueryService:
             self._fills.list_by_position_id(position.id),
             key=lambda fill: fill.filled_at,
         )
+        market_context_snapshots = sorted(
+            self._market_context_snapshots.list_by_target("TradeReview", review.id),
+            key=lambda snapshot: snapshot.captured_at,
+        )
         return TradeReviewDetail(
             review=review,
             position=position,
             trade_plan=plan,
             trade_idea=idea,
             realized_pnl=_calculate_realized_pnl(position, fills),
+            market_context_snapshots=market_context_snapshots,
         )
 
     def _build_list_item(self, review: TradeReview) -> TradeReviewListItem:
