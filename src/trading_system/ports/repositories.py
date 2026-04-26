@@ -8,6 +8,7 @@ from trading_system.domain.rules.violation import Violation
 from trading_system.domain.trading.fill import Fill
 from trading_system.domain.trading.idea import TradeIdea
 from trading_system.domain.trading.lifecycle import LifecycleEvent
+from trading_system.domain.trading.market_context import MarketContextSnapshot
 from trading_system.domain.trading.order_intent import OrderIntent
 from trading_system.domain.trading.plan import TradePlan
 from trading_system.domain.trading.position import Position
@@ -152,6 +153,30 @@ class TradeReviewRepository(Protocol):
 
     def list_all(self) -> list[TradeReview]:
         """Return all trade reviews."""
+        ...
+
+
+class MarketContextSnapshotRepository(Protocol):
+    """Persistence boundary for read-only market context snapshots."""
+
+    def add(self, snapshot: MarketContextSnapshot) -> None:
+        """Persist a market context snapshot."""
+        ...
+
+    def get(self, snapshot_id: UUID) -> MarketContextSnapshot | None:
+        """Return a market context snapshot by identity."""
+        ...
+
+    def list_by_instrument_id(self, instrument_id: UUID) -> list[MarketContextSnapshot]:
+        """Return snapshots for one instrument."""
+        ...
+
+    def list_by_target(
+        self,
+        target_type: str,
+        target_id: UUID,
+    ) -> list[MarketContextSnapshot]:
+        """Return snapshots linked to one planning or review target."""
         ...
 
 

@@ -15,6 +15,7 @@ from trading_system.domain.rules.violation import Violation
 from trading_system.domain.trading.fill import Fill
 from trading_system.domain.trading.idea import TradeIdea
 from trading_system.domain.trading.lifecycle import LifecycleEvent
+from trading_system.domain.trading.market_context import MarketContextSnapshot
 from trading_system.domain.trading.order_intent import (
     OrderIntent,
     OrderIntentStatus,
@@ -35,6 +36,7 @@ COLLECTIONS = (
     "order_intents",
     "fills",
     "trade_reviews",
+    "market_context_snapshots",
     "lifecycle_events",
     "rule_evaluations",
     "violations",
@@ -336,6 +338,58 @@ class JsonTradeReviewRepository:
         ]
 
 
+class JsonMarketContextSnapshotRepository:
+    """Stores read-only market context snapshots in a local JSON document."""
+
+    def __init__(self, store: JsonStore) -> None:
+        self._store = store
+
+    def add(self, snapshot: MarketContextSnapshot) -> None:
+        """Persist a market context snapshot."""
+        self._store.upsert(
+            "market_context_snapshots",
+            snapshot.id,
+            _market_context_snapshot_to_record(snapshot),
+        )
+
+    def get(self, snapshot_id: UUID) -> MarketContextSnapshot | None:
+        """Return a market context snapshot by identity."""
+        record = self._store.get("market_context_snapshots", snapshot_id)
+        return None if record is None else _market_context_snapshot_from_record(record)
+
+    def list_by_instrument_id(self, instrument_id: UUID) -> list[MarketContextSnapshot]:
+        """Return snapshots for one instrument."""
+        return sorted(
+            [
+                snapshot
+                for snapshot in (
+                    _market_context_snapshot_from_record(record)
+                    for record in self._store.read()["market_context_snapshots"].values()
+                )
+                if snapshot.instrument_id == instrument_id
+            ],
+            key=lambda snapshot: snapshot.captured_at,
+        )
+
+    def list_by_target(
+        self,
+        target_type: str,
+        target_id: UUID,
+    ) -> list[MarketContextSnapshot]:
+        """Return snapshots linked to one planning or review target."""
+        return sorted(
+            [
+                snapshot
+                for snapshot in (
+                    _market_context_snapshot_from_record(record)
+                    for record in self._store.read()["market_context_snapshots"].values()
+                )
+                if snapshot.target_type == target_type and snapshot.target_id == target_id
+            ],
+            key=lambda snapshot: snapshot.captured_at,
+        )
+
+
 class JsonRuleEvaluationRepository:
     """Stores rule evaluation artifacts in a local JSON document."""
 
@@ -400,6 +454,7 @@ class JsonRepositorySet:
     fills: JsonFillRepository
     lifecycle_events: JsonLifecycleEventRepository
     reviews: JsonTradeReviewRepository
+    market_context_snapshots: JsonMarketContextSnapshotRepository
     evaluations: JsonRuleEvaluationRepository
     violations: JsonViolationRepository
 
@@ -418,6 +473,7 @@ def build_json_repositories(path: Path | str) -> JsonRepositorySet:
         fills=JsonFillRepository(store),
         lifecycle_events=JsonLifecycleEventRepository(store),
         reviews=JsonTradeReviewRepository(store),
+        market_context_snapshots=JsonMarketContextSnapshotRepository(store),
         evaluations=JsonRuleEvaluationRepository(store),
         violations=JsonViolationRepository(store),
     )
@@ -652,6 +708,40 @@ def _trade_review_from_record(record: dict[str, Any]) -> TradeReview:
         follow_up_actions=list(record["follow_up_actions"]),
         rating=record["rating"],
         reviewed_at=_datetime(record["reviewed_at"]),
+    )
+
+
+def _market_context_snapshot_to_record(
+    snapshot: MarketContextSnapshot,
+) -> dict[str, Any]:
+    return {
+        "id": str(snapshot.id),
+        "instrument_id": str(snapshot.instrument_id),
+        "target_type": snapshot.target_type,
+        "target_id": _optional_uuid_to_string(snapshot.target_id),
+        "context_type": snapshot.context_type,
+        "source": snapshot.source,
+        "source_ref": snapshot.source_ref,
+        "observed_at": snapshot.observed_at.isoformat(),
+        "captured_at": snapshot.captured_at.isoformat(),
+        "payload": snapshot.payload,
+    }
+
+
+def _market_context_snapshot_from_record(
+    record: dict[str, Any],
+) -> MarketContextSnapshot:
+    return MarketContextSnapshot(
+        id=UUID(record["id"]),
+        instrument_id=UUID(record["instrument_id"]),
+        target_type=record["target_type"],
+        target_id=_optional_uuid(record["target_id"]),
+        context_type=record["context_type"],
+        source=record["source"],
+        source_ref=record["source_ref"],
+        observed_at=_datetime(record["observed_at"]),
+        captured_at=_datetime(record["captured_at"]),
+        payload=dict(record["payload"]),
     )
 
 

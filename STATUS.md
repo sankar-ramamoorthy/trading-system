@@ -9,7 +9,7 @@ Milestone 4 - Read-only market context
 - Milestone 1: complete (MVP)
 - Milestone 2: complete (core workflow extensions)
 - Milestone 3: complete (manual workflow usability)
-- Milestone 4: not started
+- Milestone 4: started
 
 The system is currently a functional, CLI-driven, manual trading workflow with local JSON persistence and lifecycle tracking.
 
@@ -26,6 +26,8 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - CLI-based write and read workflows
 - Filtering and sorting for core read models
 - Explicit `OrderIntent` cancellation with audit visibility and fill-linkage enforcement
+- Read-only market context snapshot import from local JSON files
+- CLI inspection of stored market context by instrument or linked target
 
 ## Active Constraints
 
@@ -38,16 +40,15 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - Domain model is the source of truth for trade meaning
 - External data must remain read-only and non-canonical
 
-## Next Slice (Milestone 4 Entry Point)
+## Active Slice (Milestone 4 Entry Point)
 
-Introduce a minimal, read-only market/context workflow:
+Implement the initial read-only market/context workflow:
 
-- Define a context retrieval interface in the ports layer
-- Implement a simple infrastructure adapter, likely stubbed or local snapshot-based first
-- Add CLI command(s) to fetch or refresh context for an instrument, plan, position, or review target
-- Add CLI command(s) to inspect stored context during planning or review
-- Store context as timestamped, auditable snapshots or cached references
-- Preserve the rule that context informs decisions but does not define trade meaning
+- Context snapshots are imported from explicit local JSON files
+- Snapshots can be attached to an instrument, trade plan, position, or trade review target
+- Stored snapshots are timestamped and auditable
+- Context informs decisions but does not define trade meaning
+- External provider adapters such as yfinance remain deferred
 
 ## Immediate Design Guardrails
 
@@ -56,6 +57,7 @@ Introduce a minimal, read-only market/context workflow:
 - Do not stream or subscribe to live data
 - Keep all context interactions explicit and user-invoked
 - Preserve auditability of retrieved context
+- Add an ADR before introducing an external market data provider
 
 ## Architecture Reference (Current)
 

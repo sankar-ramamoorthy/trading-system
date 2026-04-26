@@ -167,12 +167,43 @@ uv run trading-system show-position <position-id>
 uv run trading-system show-position-timeline <position-id>
 ```
 
+### Read-Only Market Context
+
+Milestone 4 begins with explicit local JSON file import for market/context snapshots. Context is advisory support for planning and review; it does not change trade plans, positions, reviews, rules, fills, or lifecycle state.
+
+Example context file:
+
+```json
+{
+  "context_type": "price_snapshot",
+  "observed_at": "2026-04-26T16:00:00-04:00",
+  "payload": {
+    "symbol": "AAPL",
+    "last": "185.25",
+    "notes": "Delayed close snapshot"
+  }
+}
+```
+
+Import and inspect context:
+
+```powershell
+uv run trading-system import-context .\context.json --instrument-id <instrument-id>
+uv run trading-system import-context .\context.json --target-type trade-plan --target-id <trade-plan-id>
+uv run trading-system list-context --instrument-id <instrument-id>
+uv run trading-system list-context --target-type trade-plan --target-id <trade-plan-id>
+uv run trading-system show-context <market-context-snapshot-id>
+```
+
+External providers such as yfinance are not implemented yet. They should be added later behind the context source port and documented with an ADR before use.
+
 ### Important Notes
 
 - execution is manual
 - prices and fills are user-entered
 - data persists locally in JSON by default
-- no broker or market data integration exists yet
+- no broker integration exists yet
+- market context exists only as explicit read-only local snapshots
 - the system is currently a discipline and journaling tool
 
 ---

@@ -7,6 +7,7 @@ from trading_system.domain.rules.violation import Violation
 from trading_system.domain.trading.fill import Fill
 from trading_system.domain.trading.idea import TradeIdea
 from trading_system.domain.trading.lifecycle import LifecycleEvent
+from trading_system.domain.trading.market_context import MarketContextSnapshot
 from trading_system.domain.trading.order_intent import OrderIntent
 from trading_system.domain.trading.plan import TradePlan
 from trading_system.domain.trading.position import Position
@@ -190,6 +191,47 @@ class InMemoryTradeReviewRepository:
     def list_all(self) -> list[TradeReview]:
         """Return all trade reviews."""
         return list(self.items.values())
+
+
+class InMemoryMarketContextSnapshotRepository:
+    """Stores read-only market context snapshots in memory."""
+
+    def __init__(self) -> None:
+        self.items: dict[UUID, MarketContextSnapshot] = {}
+
+    def add(self, snapshot: MarketContextSnapshot) -> None:
+        """Persist a market context snapshot."""
+        self.items[snapshot.id] = snapshot
+
+    def get(self, snapshot_id: UUID) -> MarketContextSnapshot | None:
+        """Return a market context snapshot by identity."""
+        return self.items.get(snapshot_id)
+
+    def list_by_instrument_id(self, instrument_id: UUID) -> list[MarketContextSnapshot]:
+        """Return snapshots for one instrument."""
+        return sorted(
+            [
+                snapshot
+                for snapshot in self.items.values()
+                if snapshot.instrument_id == instrument_id
+            ],
+            key=lambda snapshot: snapshot.captured_at,
+        )
+
+    def list_by_target(
+        self,
+        target_type: str,
+        target_id: UUID,
+    ) -> list[MarketContextSnapshot]:
+        """Return snapshots linked to one planning or review target."""
+        return sorted(
+            [
+                snapshot
+                for snapshot in self.items.values()
+                if snapshot.target_type == target_type and snapshot.target_id == target_id
+            ],
+            key=lambda snapshot: snapshot.captured_at,
+        )
 
 
 class InMemoryRuleEvaluationRepository:

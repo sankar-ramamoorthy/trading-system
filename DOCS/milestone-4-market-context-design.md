@@ -50,6 +50,17 @@ Expected high-level workflow shape:
 
 The CLI should make the separation obvious: context is shown alongside a trade, not merged into the trade's domain meaning.
 
+## Initial Implementation Slice
+
+The first repository slice uses explicit local JSON file import as the context source.
+
+This keeps the workflow local-first and auditable while introducing the durable boundary needed for later provider adapters:
+
+- imported files become stored `MarketContextSnapshot` records
+- each snapshot is linked to an instrument and may optionally link to a trade plan, position, or trade review target
+- the imported payload remains flexible JSON
+- external providers such as yfinance are deferred until a small ADR records provider status, failure behavior, and non-canonical use
+
 ## Non-Goals
 
 - live streaming market data

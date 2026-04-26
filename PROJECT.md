@@ -6,7 +6,7 @@ Milestone 4 - Read-only market context
 
 ## Current Slice
 
-Implement the initial read-only context retrieval workflow for instrument, planning, position, or review snapshots.
+Implement the initial read-only context snapshot workflow for instrument, planning, position, or review targets.
 
 ## Constraints
 
@@ -16,13 +16,14 @@ Implement the initial read-only context retrieval workflow for instrument, plann
 - External context does not define canonical trade meaning.
 - No broker integration, execution triggers, streaming, or automated plan creation.
 - No AI or ML decision-making.
+- External provider adapters such as yfinance are deferred until an ADR records the provider boundary.
 
 ## Next Steps
 
-- Define a narrow context retrieval port.
-- Add a simple infrastructure adapter, starting with a stub or local snapshot source.
-- Add local persistence for timestamped context snapshots if the first slice needs stored inspection.
-- Add CLI commands to fetch or refresh context and inspect preserved context.
+- Keep refining the local JSON file import path for timestamped context snapshots.
+- Use the context source port for future provider adapters without coupling services to provider APIs.
+- Add CLI commands and read models only where context remains visibly separate from canonical trade meaning.
+- Add an ADR before implementing yfinance or any other external provider.
 - Keep context output visibly separate from `TradeIdea`, `TradeThesis`, `TradePlan`, `Position`, `Fill`, and `TradeReview` meaning.
 
 ## Design Context
