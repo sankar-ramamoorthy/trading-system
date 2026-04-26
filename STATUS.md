@@ -22,7 +22,7 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - Manual fill recording with optional `OrderIntent` linkage
 - Automatic position state tracking and closure
 - Read-side realized P&L for closed positions
-- Trade review creation, tagging, filtering, and inspection
+- Trade review creation, tagging, quality scoring, filtering, and inspection
 - Lifecycle event audit trail and position timeline output
 - CLI-based write and read workflows
 - Filtering and sorting for core read models
@@ -59,9 +59,13 @@ Milestone 4 is closed with the implemented local snapshot workflow:
 
 ## Active Slice (Milestone 5)
 
-Review tags and filtering are the first narrow Milestone 5 implementation slice.
+Review tags and filtering are complete as the first narrow Milestone 5 implementation slice.
 
 This slice adds creation-time tags to trade reviews, shows tags in review list/detail output, and supports `list-trade-reviews --tag` filters. It does not add review editing, reporting/export, a tag taxonomy, generated coaching, or broader analytics.
+
+Review quality scores are the second narrow Milestone 5 implementation slice.
+
+This slice adds optional 1-5 process, setup, execution, and exit quality scores to trade reviews, shows them in review read output, and supports exact score filters. It does not add review editing, reporting/export, generated coaching, or broader analytics.
 
 ## Immediate Design Guardrails
 

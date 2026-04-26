@@ -704,6 +704,10 @@ def _trade_review_to_record(review: TradeReview) -> dict[str, Any]:
         "follow_up_actions": list(review.follow_up_actions),
         "tags": list(review.tags),
         "rating": review.rating,
+        "process_score": review.process_score,
+        "setup_quality": review.setup_quality,
+        "execution_quality": review.execution_quality,
+        "exit_quality": review.exit_quality,
         "reviewed_at": review.reviewed_at.isoformat(),
     }
 
@@ -719,6 +723,10 @@ def _trade_review_from_record(record: dict[str, Any]) -> TradeReview:
         follow_up_actions=list(record["follow_up_actions"]),
         tags=list(record.get("tags", [])),
         rating=record["rating"],
+        process_score=record.get("process_score"),
+        setup_quality=record.get("setup_quality"),
+        execution_quality=record.get("execution_quality"),
+        exit_quality=record.get("exit_quality"),
         reviewed_at=_datetime(record["reviewed_at"]),
     )
 

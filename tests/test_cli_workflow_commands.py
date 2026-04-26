@@ -182,12 +182,24 @@ def test_cli_end_to_end_workflow_without_demo_command(tmp_path) -> None:
             "risk_management",
             "--rating",
             "4",
+            "--process-score",
+            "5",
+            "--setup-quality",
+            "4",
+            "--execution-quality",
+            "3",
+            "--exit-quality",
+            "2",
         ],
         env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
     )
     assert create_review.exit_code == 0
     assert "trade_review_id:" in create_review.output
     assert "rating: 4" in create_review.output
+    assert "process_score: 5" in create_review.output
+    assert "setup_quality: 4" in create_review.output
+    assert "execution_quality: 3" in create_review.output
+    assert "exit_quality: 2" in create_review.output
     assert "tags: risk-management" in create_review.output
 
     show_plan = runner.invoke(
@@ -272,6 +284,14 @@ def test_cli_end_to_end_workflow_without_demo_command(tmp_path) -> None:
             "long",
             "--tag",
             "risk-management",
+            "--process-score",
+            "5",
+            "--setup-quality",
+            "4",
+            "--execution-quality",
+            "3",
+            "--exit-quality",
+            "2",
             "--sort",
             "newest",
         ],

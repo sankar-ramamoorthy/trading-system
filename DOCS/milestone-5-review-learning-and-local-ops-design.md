@@ -38,6 +38,27 @@ The slice stays narrow:
 - no reporting/export surface is introduced yet
 - no generated coaching or AI review content is introduced
 
+## Second Implementation Slice
+
+The second Milestone 5 slice is review quality scoring.
+
+This slice adds optional 1-5 creation-time scores to `TradeReview` for:
+
+- process quality
+- setup quality
+- execution quality
+- exit quality
+
+The scores are displayed in review list/detail output and can be filtered exactly through `list-trade-reviews`.
+
+The slice stays narrow:
+
+- existing reviews can remain unscored
+- scores are review metadata, not analytics
+- no review editing or backfill workflow is introduced
+- no reporting/export surface is introduced yet
+- no generated coaching or AI review content is introduced
+
 ## Local Backup And Export Expectations
 
 - the system should remain local-first

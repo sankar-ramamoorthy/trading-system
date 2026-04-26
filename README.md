@@ -144,7 +144,7 @@ uv run trading-system cancel-order-intent <order-intent-id>
 uv run trading-system open-position <trade-plan-id>
 uv run trading-system record-fill --position-id <position-id> --side buy --quantity 100 --price 25.50 --order-intent-id <order-intent-id>
 uv run trading-system record-fill --position-id <position-id> --side sell --quantity 100 --price 27.00
-uv run trading-system create-trade-review --position-id <position-id> --summary "Followed the plan." --what-went-well "Entry was clean." --what-went-poorly "Exit could have been faster." --tag risk-management --tag missed-exit
+uv run trading-system create-trade-review --position-id <position-id> --summary "Followed the plan." --what-went-well "Entry was clean." --what-went-poorly "Exit could have been faster." --tag risk-management --tag missed-exit --process-score 5 --setup-quality 4 --execution-quality 3 --exit-quality 2
 ```
 
 ### Read And Inspect Stored Data
@@ -159,7 +159,7 @@ uv run trading-system list-trade-plans
 uv run trading-system list-trade-plans --approval-state approved --sort newest
 uv run trading-system show-trade-plan <trade-plan-id>
 uv run trading-system list-trade-reviews
-uv run trading-system list-trade-reviews --rating 4 --purpose swing --direction long --tag risk-management --sort newest
+uv run trading-system list-trade-reviews --rating 4 --purpose swing --direction long --tag risk-management --process-score 5 --sort newest
 uv run trading-system show-trade-review <trade-review-id>
 uv run trading-system list-positions
 uv run trading-system list-positions --state closed --sort newest
@@ -216,6 +216,18 @@ uv run trading-system list-trade-reviews --tag missed-exit --tag risk-management
 ```
 
 Tags do not introduce review editing, a central taxonomy, coaching, or analytics.
+
+## Review Quality Scores
+
+The second Milestone 5 slice adds optional 1-5 quality scores to make reviews easier to compare later without introducing reports or generated coaching.
+
+```powershell
+uv run trading-system create-trade-review --position-id <position-id> --summary "Followed the plan." --what-went-well "Entry was clean." --what-went-poorly "Exit was late." --process-score 5 --setup-quality 4 --execution-quality 3 --exit-quality 2
+uv run trading-system list-trade-reviews --process-score 5
+uv run trading-system list-trade-reviews --setup-quality 4 --execution-quality 3
+```
+
+Scores are creation-time review metadata only. Existing reviews do not need scores.
 
 ### Important Notes
 

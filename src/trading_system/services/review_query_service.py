@@ -69,6 +69,10 @@ class ReviewQueryService:
         purpose: str | None = None,
         direction: str | None = None,
         tags: list[str] | None = None,
+        process_score: int | None = None,
+        setup_quality: int | None = None,
+        execution_quality: int | None = None,
+        exit_quality: int | None = None,
         sort: Literal["oldest", "newest"] = "oldest",
     ) -> list[TradeReviewListItem]:
         """Return persisted trade reviews with exact filters and chronological sorting."""
@@ -89,6 +93,24 @@ class ReviewQueryService:
                 item
                 for item in items
                 if required_tags.issubset(set(item.review.tags))
+            ]
+        if process_score is not None:
+            items = [
+                item for item in items if item.review.process_score == process_score
+            ]
+        if setup_quality is not None:
+            items = [
+                item for item in items if item.review.setup_quality == setup_quality
+            ]
+        if execution_quality is not None:
+            items = [
+                item
+                for item in items
+                if item.review.execution_quality == execution_quality
+            ]
+        if exit_quality is not None:
+            items = [
+                item for item in items if item.review.exit_quality == exit_quality
             ]
         return sorted(
             items,

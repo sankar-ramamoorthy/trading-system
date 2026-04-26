@@ -35,6 +35,10 @@ class ReviewService:
         follow_up_actions: list[str] | None = None,
         tags: list[str] | None = None,
         rating: int | None = None,
+        process_score: int | None = None,
+        setup_quality: int | None = None,
+        execution_quality: int | None = None,
+        exit_quality: int | None = None,
     ) -> TradeReview:
         """Create one immutable manual review for a closed position."""
         position = self._positions.get(position_id)
@@ -54,6 +58,13 @@ class ReviewService:
             follow_up_actions=list(follow_up_actions or []),
             tags=normalize_review_tags(tags),
             rating=rating,
+            process_score=_validate_review_score("process_score", process_score),
+            setup_quality=_validate_review_score("setup_quality", setup_quality),
+            execution_quality=_validate_review_score(
+                "execution_quality",
+                execution_quality,
+            ),
+            exit_quality=_validate_review_score("exit_quality", exit_quality),
         )
         self._reviews.add(review)
         self._lifecycle_events.add(
@@ -85,3 +96,11 @@ def normalize_review_tags(tags: list[str] | None) -> list[str]:
             normalized_tags.append(normalized)
             seen.add(normalized)
     return normalized_tags
+
+
+def _validate_review_score(name: str, score: int | None) -> int | None:
+    if score is None:
+        return None
+    if score < 1 or score > 5:
+        raise ValueError(f"{name} must be between 1 and 5.")
+    return score

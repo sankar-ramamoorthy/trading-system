@@ -133,6 +133,10 @@ def test_position_fill_review_and_lifecycle_survive_repository_reload(tmp_path) 
         follow_up_actions=["Review exit checklist."],
         tags=["missed-exit"],
         rating=4,
+        process_score=5,
+        setup_quality=4,
+        execution_quality=3,
+        exit_quality=2,
     )
 
     reloaded = build_json_repositories(store_path)
@@ -499,8 +503,8 @@ def test_trade_review_repository_list_all_survives_reload(tmp_path) -> None:
     assert reloaded.reviews.list_all() == [review]
 
 
-def test_trade_review_without_tags_loads_as_empty_list(tmp_path) -> None:
-    """Older review records without tags remain readable."""
+def test_trade_review_without_new_review_metadata_loads_defaults(tmp_path) -> None:
+    """Older review records without tags or scores remain readable."""
     store_path = tmp_path / "store.json"
     repositories = build_json_repositories(store_path)
     planning = TradePlanningService(
@@ -562,9 +566,18 @@ def test_trade_review_without_tags_loads_as_empty_list(tmp_path) -> None:
     )
     raw = json.loads(store_path.read_text(encoding="utf-8"))
     del raw["trade_reviews"][str(review.id)]["tags"]
+    raw["trade_reviews"][str(review.id)].pop("process_score", None)
+    raw["trade_reviews"][str(review.id)].pop("setup_quality", None)
+    raw["trade_reviews"][str(review.id)].pop("execution_quality", None)
+    raw["trade_reviews"][str(review.id)].pop("exit_quality", None)
     store_path.write_text(json.dumps(raw), encoding="utf-8")
 
-    assert build_json_repositories(store_path).reviews.get(review.id).tags == []
+    persisted = build_json_repositories(store_path).reviews.get(review.id)
+    assert persisted.tags == []
+    assert persisted.process_score is None
+    assert persisted.setup_quality is None
+    assert persisted.execution_quality is None
+    assert persisted.exit_quality is None
 
 
 def test_trade_thesis_repository_list_all_survives_reload(tmp_path) -> None:

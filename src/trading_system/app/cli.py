@@ -493,6 +493,10 @@ def create_trade_review(
         help="Repeat to add multiple review tags.",
     ),
     rating: int | None = typer.Option(None, "--rating"),
+    process_score: int | None = typer.Option(None, "--process-score"),
+    setup_quality: int | None = typer.Option(None, "--setup-quality"),
+    execution_quality: int | None = typer.Option(None, "--execution-quality"),
+    exit_quality: int | None = typer.Option(None, "--exit-quality"),
 ) -> None:
     """Create one immutable review for a closed position."""
     repositories = _repositories()
@@ -510,6 +514,10 @@ def create_trade_review(
             follow_up_actions=follow_up_actions,
             tags=tags,
             rating=rating,
+            process_score=process_score,
+            setup_quality=setup_quality,
+            execution_quality=execution_quality,
+            exit_quality=exit_quality,
         )
     )
     _echo_trade_review(review)
@@ -782,6 +790,10 @@ def list_trade_reviews(
         "--tag",
         help="Repeat to require multiple review tags.",
     ),
+    process_score: int | None = typer.Option(None, "--process-score"),
+    setup_quality: int | None = typer.Option(None, "--setup-quality"),
+    execution_quality: int | None = typer.Option(None, "--execution-quality"),
+    exit_quality: int | None = typer.Option(None, "--exit-quality"),
     sort: ListSortOrder = typer.Option("oldest", "--sort"),
 ) -> None:
     """List persisted trade reviews from the local JSON store."""
@@ -790,6 +802,10 @@ def list_trade_reviews(
         purpose=purpose,
         direction=direction,
         tags=tags,
+        process_score=process_score,
+        setup_quality=setup_quality,
+        execution_quality=execution_quality,
+        exit_quality=exit_quality,
         sort=sort,
     )
     if not reviews:
@@ -798,7 +814,8 @@ def list_trade_reviews(
 
     typer.echo(
         "TRADE_REVIEW_ID | POSITION_ID | TRADE_PLAN_ID | PURPOSE | DIRECTION | "
-        "RATING | TAGS | SUMMARY | REVIEWED_AT"
+        "RATING | PROCESS_SCORE | SETUP_QUALITY | EXECUTION_QUALITY | "
+        "EXIT_QUALITY | TAGS | SUMMARY | REVIEWED_AT"
     )
     for item in reviews:
         typer.echo(
@@ -810,6 +827,10 @@ def list_trade_reviews(
                     item.trade_idea.purpose,
                     item.trade_idea.direction,
                     "" if item.review.rating is None else str(item.review.rating),
+                    _format_optional_list_value(item.review.process_score),
+                    _format_optional_list_value(item.review.setup_quality),
+                    _format_optional_list_value(item.review.execution_quality),
+                    _format_optional_list_value(item.review.exit_quality),
                     _format_tag_list(item.review.tags),
                     item.review.summary,
                     item.review.reviewed_at.isoformat(),
@@ -834,6 +855,13 @@ def show_trade_review(trade_review_id: str) -> None:
             ("position_id", review.position_id),
             ("trade_plan_id", detail.trade_plan.id),
             ("rating", _format_optional_show_value(review.rating)),
+            ("process_score", _format_optional_show_value(review.process_score)),
+            ("setup_quality", _format_optional_show_value(review.setup_quality)),
+            (
+                "execution_quality",
+                _format_optional_show_value(review.execution_quality),
+            ),
+            ("exit_quality", _format_optional_show_value(review.exit_quality)),
             ("tags", _format_tag_list(review.tags) or "None"),
             ("reviewed_at", review.reviewed_at.isoformat()),
             ("summary", review.summary),
@@ -1317,6 +1345,11 @@ def _format_optional_text(value: str | None) -> str:
     return "" if value is None else value
 
 
+def _format_optional_list_value(value: object | None) -> str:
+    """Format optional generic values for list and compact output."""
+    return "" if value is None else str(value)
+
+
 def _format_optional_show_datetime(value: datetime | None) -> str:
     """Format optional datetime values for show output."""
     return "N/A" if value is None else value.isoformat()
@@ -1437,6 +1470,13 @@ def _echo_trade_review(review: TradeReview) -> None:
     typer.echo(f"trade_review_id: {review.id}")
     typer.echo(f"position_id: {review.position_id}")
     typer.echo(f"rating: {'' if review.rating is None else review.rating}")
+    typer.echo(f"process_score: {_format_optional_list_value(review.process_score)}")
+    typer.echo(f"setup_quality: {_format_optional_list_value(review.setup_quality)}")
+    typer.echo(
+        "execution_quality: "
+        f"{_format_optional_list_value(review.execution_quality)}"
+    )
+    typer.echo(f"exit_quality: {_format_optional_list_value(review.exit_quality)}")
     typer.echo(f"tags: {_format_tag_list(review.tags)}")
     typer.echo(f"summary: {review.summary}")
     typer.echo(

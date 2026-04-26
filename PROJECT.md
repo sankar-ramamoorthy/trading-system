@@ -6,7 +6,7 @@ Milestone 5 - Review, learning, and local operations
 
 ## Current Slice
 
-Implement review tags and filtering as the first narrow Milestone 5 slice.
+Implement review quality scores as the second narrow Milestone 5 slice.
 
 ## Constraints
 
@@ -22,9 +22,9 @@ Implement review tags and filtering as the first narrow Milestone 5 slice.
 
 ## Next Steps
 
-- Add creation-time tags to `TradeReview`.
-- Surface tags in review list/detail CLI output.
-- Support `list-trade-reviews --tag` filtering.
+- Add optional 1-5 process, setup, execution, and exit quality scores to `TradeReview`.
+- Surface quality scores in review list/detail CLI output.
+- Support exact `list-trade-reviews` filters for each quality score.
 - Keep reporting scoped to completed trades and explicit review records.
 - Preserve the distinction between canonical trade records, read-only market context, and derived read models.
 - Use the context source port for any future provider adapters without coupling services to provider APIs.

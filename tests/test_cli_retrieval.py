@@ -347,7 +347,8 @@ def test_list_trade_reviews_reads_persisted_store(tmp_path) -> None:
     lines = _lines(result.output)
     assert lines[0] == (
         "TRADE_REVIEW_ID | POSITION_ID | TRADE_PLAN_ID | PURPOSE | DIRECTION | "
-        "RATING | TAGS | SUMMARY | REVIEWED_AT"
+        "RATING | PROCESS_SCORE | SETUP_QUALITY | EXECUTION_QUALITY | "
+        "EXIT_QUALITY | TAGS | SUMMARY | REVIEWED_AT"
     )
     columns = lines[1].split(" | ")
     assert columns[0] == str(review_id)
@@ -356,8 +357,12 @@ def test_list_trade_reviews_reads_persisted_store(tmp_path) -> None:
     assert columns[4] == "long"
     assert columns[5] == ""
     assert columns[6] == ""
-    assert columns[7] == "Followed the plan."
-    assert columns[8]
+    assert columns[7] == ""
+    assert columns[8] == ""
+    assert columns[9] == ""
+    assert columns[10] == ""
+    assert columns[11] == "Followed the plan."
+    assert columns[12]
 
 
 def test_list_trade_reviews_can_filter_and_sort(tmp_path) -> None:
@@ -369,6 +374,10 @@ def test_list_trade_reviews_can_filter_and_sort(tmp_path) -> None:
         direction="long",
         rating=4,
         tags=["missed-exit", "risk-management"],
+        process_score=5,
+        setup_quality=4,
+        execution_quality=3,
+        exit_quality=2,
     )
     second_position_id = _seed_closed_position(
         store_path,
@@ -376,6 +385,10 @@ def test_list_trade_reviews_can_filter_and_sort(tmp_path) -> None:
         direction="short",
         rating=2,
         tags=["missed-exit"],
+        process_score=3,
+        setup_quality=2,
+        execution_quality=2,
+        exit_quality=1,
     )
     repositories = build_json_repositories(store_path)
     first_review_id = repositories.reviews.get_by_position_id(first_position_id).id
@@ -393,6 +406,14 @@ def test_list_trade_reviews_can_filter_and_sort(tmp_path) -> None:
             "long",
             "--tag",
             "risk_management",
+            "--process-score",
+            "5",
+            "--setup-quality",
+            "4",
+            "--execution-quality",
+            "3",
+            "--exit-quality",
+            "2",
         ],
         env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
     )
@@ -432,6 +453,10 @@ def test_show_trade_review_includes_linked_trade_context(tmp_path) -> None:
     )
     assert f"position_id: {position_id}" in result.output
     assert "rating: N/A" in result.output
+    assert "process_score: N/A" in result.output
+    assert "setup_quality: N/A" in result.output
+    assert "execution_quality: N/A" in result.output
+    assert "exit_quality: N/A" in result.output
     assert "tags: None" in result.output
     assert "summary: Followed the plan." in result.output
     assert "what_went_well: Entry was clear." in result.output
@@ -735,6 +760,10 @@ def _seed_closed_position(
     direction: str = "long",
     rating: int | None = None,
     tags: list[str] | None = None,
+    process_score: int | None = None,
+    setup_quality: int | None = None,
+    execution_quality: int | None = None,
+    exit_quality: int | None = None,
 ) -> object:
     repositories = build_json_repositories(store_path)
     position_id = _open_position(
@@ -788,6 +817,10 @@ def _seed_closed_position(
         what_went_poorly="Exit was late.",
         rating=rating,
         tags=tags,
+        process_score=process_score,
+        setup_quality=setup_quality,
+        execution_quality=execution_quality,
+        exit_quality=exit_quality,
     )
     return position_id
 

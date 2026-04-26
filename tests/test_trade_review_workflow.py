@@ -30,6 +30,10 @@ def test_create_trade_review_for_closed_position() -> None:
         follow_up_actions=["Add exit checklist."],
         tags=["Risk Management", "missed_exit", "risk-management"],
         rating=4,
+        process_score=5,
+        setup_quality=4,
+        execution_quality=3,
+        exit_quality=2,
     )
 
     assert review.position_id == position.id
@@ -40,6 +44,10 @@ def test_create_trade_review_for_closed_position() -> None:
     assert review.follow_up_actions == ["Add exit checklist."]
     assert review.tags == ["risk-management", "missed-exit"]
     assert review.rating == 4
+    assert review.process_score == 5
+    assert review.setup_quality == 4
+    assert review.execution_quality == 3
+    assert review.exit_quality == 2
     assert review.reviewed_at is not None
     assert reviews.get_by_position_id(position.id) == review
 
@@ -122,6 +130,25 @@ def test_reject_empty_review_tag() -> None:
             what_went_well="Plan followed.",
             what_went_poorly="Exit late.",
             tags=["  "],
+        )
+
+    assert reviews.get_by_position_id(position.id) is None
+    assert len(lifecycle_events.items) == 0
+
+
+def test_reject_review_quality_score_outside_one_to_five() -> None:
+    """Review quality scores must stay on the 1-5 scale."""
+    positions, reviews, lifecycle_events, service = _review_service()
+    position = _closed_position()
+    positions.add(position)
+
+    with pytest.raises(ValueError, match="process_score must be between 1 and 5"):
+        service.create_trade_review(
+            position_id=position.id,
+            summary="Scored review.",
+            what_went_well="Plan followed.",
+            what_went_poorly="Exit late.",
+            process_score=0,
         )
 
     assert reviews.get_by_position_id(position.id) is None

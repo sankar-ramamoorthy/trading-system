@@ -46,6 +46,10 @@ def test_list_trade_reviews_supports_exact_filters_and_sort_modes() -> None:
         direction="long",
         rating=4,
         tags=["missed-exit", "risk-management"],
+        process_score=5,
+        setup_quality=4,
+        execution_quality=3,
+        exit_quality=2,
     )
     second_review = workflow.create_closed_review(
         "Second review.",
@@ -53,6 +57,10 @@ def test_list_trade_reviews_supports_exact_filters_and_sort_modes() -> None:
         direction="short",
         rating=2,
         tags=["missed-exit"],
+        process_score=3,
+        setup_quality=2,
+        execution_quality=2,
+        exit_quality=1,
     )
     second_review.reviewed_at = first_review.reviewed_at + timedelta(seconds=1)
 
@@ -61,6 +69,10 @@ def test_list_trade_reviews_supports_exact_filters_and_sort_modes() -> None:
         purpose="swing",
         direction="long",
         tags=["missed_exit"],
+        process_score=5,
+        setup_quality=4,
+        execution_quality=3,
+        exit_quality=2,
     )
 
     assert [item.review.id for item in filtered] == [first_review.id]
@@ -70,6 +82,12 @@ def test_list_trade_reviews_supports_exact_filters_and_sort_modes() -> None:
     ]
     assert [item.review.id for item in workflow.query.list_trade_reviews(tags=["missed-exit", "risk-management"])] == [
         first_review.id,
+    ]
+    assert [item.review.id for item in workflow.query.list_trade_reviews(process_score=5)] == [
+        first_review.id,
+    ]
+    assert [item.review.id for item in workflow.query.list_trade_reviews(exit_quality=1)] == [
+        second_review.id,
     ]
     assert [item.review.id for item in workflow.query.list_trade_reviews(sort="newest")] == [
         second_review.id,
@@ -172,6 +190,10 @@ class _Workflow:
         direction: str = "long",
         rating: int | None = None,
         tags: list[str] | None = None,
+        process_score: int | None = None,
+        setup_quality: int | None = None,
+        execution_quality: int | None = None,
+        exit_quality: int | None = None,
     ):
         idea = self.planning.create_trade_idea(
             instrument_id=uuid4(),
@@ -212,6 +234,10 @@ class _Workflow:
             what_went_poorly="Exit could be faster.",
             rating=rating,
             tags=tags,
+            process_score=process_score,
+            setup_quality=setup_quality,
+            execution_quality=execution_quality,
+            exit_quality=exit_quality,
         )
 
     def add_market_context_snapshot(
