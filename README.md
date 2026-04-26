@@ -144,7 +144,7 @@ uv run trading-system cancel-order-intent <order-intent-id>
 uv run trading-system open-position <trade-plan-id>
 uv run trading-system record-fill --position-id <position-id> --side buy --quantity 100 --price 25.50 --order-intent-id <order-intent-id>
 uv run trading-system record-fill --position-id <position-id> --side sell --quantity 100 --price 27.00
-uv run trading-system create-trade-review --position-id <position-id> --summary "Followed the plan." --what-went-well "Entry was clean." --what-went-poorly "Exit could have been faster."
+uv run trading-system create-trade-review --position-id <position-id> --summary "Followed the plan." --what-went-well "Entry was clean." --what-went-poorly "Exit could have been faster." --tag risk-management --tag missed-exit
 ```
 
 ### Read And Inspect Stored Data
@@ -159,7 +159,7 @@ uv run trading-system list-trade-plans
 uv run trading-system list-trade-plans --approval-state approved --sort newest
 uv run trading-system show-trade-plan <trade-plan-id>
 uv run trading-system list-trade-reviews
-uv run trading-system list-trade-reviews --rating 4 --purpose swing --direction long --sort newest
+uv run trading-system list-trade-reviews --rating 4 --purpose swing --direction long --tag risk-management --sort newest
 uv run trading-system show-trade-review <trade-review-id>
 uv run trading-system list-positions
 uv run trading-system list-positions --state closed --sort newest
@@ -204,6 +204,18 @@ uv run trading-system show-context <market-context-snapshot-id>
 Linked snapshots also appear as metadata-only `Market context` sections in `show-trade-plan`, `show-position`, and `show-trade-review`. Use `show-context` when you need to inspect the full stored payload. `copy-context` creates a new linked snapshot from an existing one; it does not mutate the original import.
 
 External providers such as yfinance are not implemented yet. They should be added later behind the context source port and documented with an ADR before use.
+
+## Review Tags
+
+Milestone 5 starts with creation-time review tags for local learning loops. Tags are simple lowercase slugs stored on `TradeReview`, shown in review list/detail output, and filterable through repeated `--tag` options.
+
+```powershell
+uv run trading-system create-trade-review --position-id <position-id> --summary "Followed the plan." --what-went-well "Entry was clean." --what-went-poorly "Exit was late." --tag missed-exit --tag risk-management
+uv run trading-system list-trade-reviews --tag missed-exit
+uv run trading-system list-trade-reviews --tag missed-exit --tag risk-management
+```
+
+Tags do not introduce review editing, a central taxonomy, coaching, or analytics.
 
 ### Important Notes
 

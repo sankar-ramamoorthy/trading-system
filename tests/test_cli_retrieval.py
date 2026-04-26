@@ -347,7 +347,7 @@ def test_list_trade_reviews_reads_persisted_store(tmp_path) -> None:
     lines = _lines(result.output)
     assert lines[0] == (
         "TRADE_REVIEW_ID | POSITION_ID | TRADE_PLAN_ID | PURPOSE | DIRECTION | "
-        "RATING | SUMMARY | REVIEWED_AT"
+        "RATING | TAGS | SUMMARY | REVIEWED_AT"
     )
     columns = lines[1].split(" | ")
     assert columns[0] == str(review_id)
@@ -355,8 +355,9 @@ def test_list_trade_reviews_reads_persisted_store(tmp_path) -> None:
     assert columns[3] == "swing"
     assert columns[4] == "long"
     assert columns[5] == ""
-    assert columns[6] == "Followed the plan."
-    assert columns[7]
+    assert columns[6] == ""
+    assert columns[7] == "Followed the plan."
+    assert columns[8]
 
 
 def test_list_trade_reviews_can_filter_and_sort(tmp_path) -> None:
@@ -367,12 +368,14 @@ def test_list_trade_reviews_can_filter_and_sort(tmp_path) -> None:
         purpose="swing",
         direction="long",
         rating=4,
+        tags=["missed-exit", "risk-management"],
     )
     second_position_id = _seed_closed_position(
         store_path,
         purpose="day_trade",
         direction="short",
         rating=2,
+        tags=["missed-exit"],
     )
     repositories = build_json_repositories(store_path)
     first_review_id = repositories.reviews.get_by_position_id(first_position_id).id
@@ -388,6 +391,8 @@ def test_list_trade_reviews_can_filter_and_sort(tmp_path) -> None:
             "swing",
             "--direction",
             "long",
+            "--tag",
+            "risk_management",
         ],
         env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
     )
@@ -427,6 +432,7 @@ def test_show_trade_review_includes_linked_trade_context(tmp_path) -> None:
     )
     assert f"position_id: {position_id}" in result.output
     assert "rating: N/A" in result.output
+    assert "tags: None" in result.output
     assert "summary: Followed the plan." in result.output
     assert "what_went_well: Entry was clear." in result.output
     assert "what_went_poorly: Exit was late." in result.output
@@ -728,6 +734,7 @@ def _seed_closed_position(
     purpose: str = "swing",
     direction: str = "long",
     rating: int | None = None,
+    tags: list[str] | None = None,
 ) -> object:
     repositories = build_json_repositories(store_path)
     position_id = _open_position(
@@ -780,6 +787,7 @@ def _seed_closed_position(
         what_went_well="Entry was clear.",
         what_went_poorly="Exit was late.",
         rating=rating,
+        tags=tags,
     )
     return position_id
 

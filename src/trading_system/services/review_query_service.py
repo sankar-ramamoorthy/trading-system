@@ -19,6 +19,7 @@ from trading_system.ports.repositories import (
     TradePlanRepository,
     TradeReviewRepository,
 )
+from trading_system.services.review_service import normalize_review_tags
 
 
 @dataclass(frozen=True)
@@ -67,9 +68,11 @@ class ReviewQueryService:
         rating: int | None = None,
         purpose: str | None = None,
         direction: str | None = None,
+        tags: list[str] | None = None,
         sort: Literal["oldest", "newest"] = "oldest",
     ) -> list[TradeReviewListItem]:
         """Return persisted trade reviews with exact filters and chronological sorting."""
+        normalized_tags = normalize_review_tags(tags)
         items = [
             self._build_list_item(review)
             for review in self._reviews.list_all()
@@ -80,6 +83,13 @@ class ReviewQueryService:
             items = [item for item in items if item.trade_idea.purpose == purpose]
         if direction is not None:
             items = [item for item in items if item.trade_idea.direction == direction]
+        if normalized_tags:
+            required_tags = set(normalized_tags)
+            items = [
+                item
+                for item in items
+                if required_tags.issubset(set(item.review.tags))
+            ]
         return sorted(
             items,
             key=lambda item: item.review.reviewed_at,

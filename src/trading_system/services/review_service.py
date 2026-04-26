@@ -1,5 +1,6 @@
 """Service workflows for post-trade review creation."""
 
+import re
 from uuid import UUID
 
 from trading_system.domain.trading.lifecycle import LifecycleEvent
@@ -32,6 +33,7 @@ class ReviewService:
         what_went_poorly: str,
         lessons_learned: list[str] | None = None,
         follow_up_actions: list[str] | None = None,
+        tags: list[str] | None = None,
         rating: int | None = None,
     ) -> TradeReview:
         """Create one immutable manual review for a closed position."""
@@ -50,6 +52,7 @@ class ReviewService:
             what_went_poorly=what_went_poorly,
             lessons_learned=list(lessons_learned or []),
             follow_up_actions=list(follow_up_actions or []),
+            tags=normalize_review_tags(tags),
             rating=rating,
         )
         self._reviews.add(review)
@@ -67,3 +70,18 @@ class ReviewService:
             )
         )
         return review
+
+
+def normalize_review_tags(tags: list[str] | None) -> list[str]:
+    """Normalize review tags into stable lowercase slugs."""
+    normalized_tags: list[str] = []
+    seen: set[str] = set()
+    for tag in tags or []:
+        normalized = re.sub(r"[\s_]+", "-", tag.strip().lower())
+        normalized = re.sub(r"-+", "-", normalized).strip("-")
+        if not normalized:
+            raise ValueError("Review tags cannot be empty.")
+        if normalized not in seen:
+            normalized_tags.append(normalized)
+            seen.add(normalized)
+    return normalized_tags

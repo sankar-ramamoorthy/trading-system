@@ -24,6 +24,20 @@ Milestone 5 may include:
 
 This milestone should help the trader answer questions such as what was learned, which patterns repeat, and which completed trades match a narrow filter.
 
+## First Implementation Slice
+
+The first Milestone 5 slice is review tagging and filtering.
+
+This slice adds creation-time tags to `TradeReview`, surfaces tags in review list/detail output, and supports exact tag filters on `list-trade-reviews`.
+
+The slice stays narrow:
+
+- tags are simple lowercase slugs
+- tags are local review labels, not canonical taxonomy entities
+- existing reviews are not edited in this slice
+- no reporting/export surface is introduced yet
+- no generated coaching or AI review content is introduced
+
 ## Local Backup And Export Expectations
 
 - the system should remain local-first

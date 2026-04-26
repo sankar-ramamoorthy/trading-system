@@ -1,6 +1,7 @@
 """Tests for local JSON-backed durable persistence."""
 
 from decimal import Decimal
+import json
 from uuid import uuid4
 
 import pytest
@@ -130,6 +131,7 @@ def test_position_fill_review_and_lifecycle_survive_repository_reload(tmp_path) 
         what_went_poorly="Exit could be cleaner.",
         lessons_learned=["Keep records tied to the plan."],
         follow_up_actions=["Review exit checklist."],
+        tags=["missed-exit"],
         rating=4,
     )
 
@@ -495,6 +497,74 @@ def test_trade_review_repository_list_all_survives_reload(tmp_path) -> None:
 
     assert reloaded.reviews.get(review.id) == review
     assert reloaded.reviews.list_all() == [review]
+
+
+def test_trade_review_without_tags_loads_as_empty_list(tmp_path) -> None:
+    """Older review records without tags remain readable."""
+    store_path = tmp_path / "store.json"
+    repositories = build_json_repositories(store_path)
+    planning = TradePlanningService(
+        repositories.ideas,
+        repositories.theses,
+        repositories.plans,
+    )
+    idea = planning.create_trade_idea(
+        instrument_id=uuid4(),
+        playbook_id=uuid4(),
+        purpose="swing",
+        direction="long",
+        horizon="days_to_weeks",
+    )
+    thesis = planning.create_trade_thesis(
+        trade_idea_id=idea.id,
+        reasoning="Setup has a clear catalyst.",
+    )
+    plan = planning.create_trade_plan(
+        trade_idea_id=idea.id,
+        trade_thesis_id=thesis.id,
+        entry_criteria="Breakout confirmation.",
+        invalidation="Close below setup low.",
+        risk_model="Defined stop and max loss.",
+    )
+    position = PositionService(
+        plan_repository=repositories.plans,
+        idea_repository=repositories.ideas,
+        position_repository=repositories.positions,
+        lifecycle_event_repository=repositories.lifecycle_events,
+    ).open_position_from_plan(planning.approve_trade_plan(plan.id).id)
+    fill_service = FillService(
+        position_repository=repositories.positions,
+        fill_repository=repositories.fills,
+        lifecycle_event_repository=repositories.lifecycle_events,
+        order_intent_repository=repositories.order_intents,
+    )
+    fill_service.record_manual_fill(
+        position_id=position.id,
+        side="buy",
+        quantity=Decimal("100"),
+        price=Decimal("25.50"),
+    )
+    fill_service.record_manual_fill(
+        position_id=position.id,
+        side="sell",
+        quantity=Decimal("100"),
+        price=Decimal("27"),
+    )
+    review = ReviewService(
+        position_repository=repositories.positions,
+        review_repository=repositories.reviews,
+        lifecycle_event_repository=repositories.lifecycle_events,
+    ).create_trade_review(
+        position_id=position.id,
+        summary="Old review.",
+        what_went_well="Entry was disciplined.",
+        what_went_poorly="Exit timing slipped.",
+    )
+    raw = json.loads(store_path.read_text(encoding="utf-8"))
+    del raw["trade_reviews"][str(review.id)]["tags"]
+    store_path.write_text(json.dumps(raw), encoding="utf-8")
+
+    assert build_json_repositories(store_path).reviews.get(review.id).tags == []
 
 
 def test_trade_thesis_repository_list_all_survives_reload(tmp_path) -> None:

@@ -45,12 +45,14 @@ def test_list_trade_reviews_supports_exact_filters_and_sort_modes() -> None:
         purpose="swing",
         direction="long",
         rating=4,
+        tags=["missed-exit", "risk-management"],
     )
     second_review = workflow.create_closed_review(
         "Second review.",
         purpose="day_trade",
         direction="short",
         rating=2,
+        tags=["missed-exit"],
     )
     second_review.reviewed_at = first_review.reviewed_at + timedelta(seconds=1)
 
@@ -58,9 +60,17 @@ def test_list_trade_reviews_supports_exact_filters_and_sort_modes() -> None:
         rating=4,
         purpose="swing",
         direction="long",
+        tags=["missed_exit"],
     )
 
     assert [item.review.id for item in filtered] == [first_review.id]
+    assert [item.review.id for item in workflow.query.list_trade_reviews(tags=["missed-exit"])] == [
+        first_review.id,
+        second_review.id,
+    ]
+    assert [item.review.id for item in workflow.query.list_trade_reviews(tags=["missed-exit", "risk-management"])] == [
+        first_review.id,
+    ]
     assert [item.review.id for item in workflow.query.list_trade_reviews(sort="newest")] == [
         second_review.id,
         first_review.id,
@@ -161,6 +171,7 @@ class _Workflow:
         purpose: str = "swing",
         direction: str = "long",
         rating: int | None = None,
+        tags: list[str] | None = None,
     ):
         idea = self.planning.create_trade_idea(
             instrument_id=uuid4(),
@@ -200,6 +211,7 @@ class _Workflow:
             what_went_well="Entry was clean.",
             what_went_poorly="Exit could be faster.",
             rating=rating,
+            tags=tags,
         )
 
     def add_market_context_snapshot(

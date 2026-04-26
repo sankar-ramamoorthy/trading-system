@@ -176,6 +176,10 @@ def test_cli_end_to_end_workflow_without_demo_command(tmp_path) -> None:
             "Keep size aligned with plan.",
             "--follow-up-action",
             "Review execution notes before entry.",
+            "--tag",
+            "Risk Management",
+            "--tag",
+            "risk_management",
             "--rating",
             "4",
         ],
@@ -184,6 +188,7 @@ def test_cli_end_to_end_workflow_without_demo_command(tmp_path) -> None:
     assert create_review.exit_code == 0
     assert "trade_review_id:" in create_review.output
     assert "rating: 4" in create_review.output
+    assert "tags: risk-management" in create_review.output
 
     show_plan = runner.invoke(
         app,
@@ -265,6 +270,8 @@ def test_cli_end_to_end_workflow_without_demo_command(tmp_path) -> None:
             "swing",
             "--direction",
             "long",
+            "--tag",
+            "risk-management",
             "--sort",
             "newest",
         ],

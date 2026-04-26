@@ -487,6 +487,11 @@ def create_trade_review(
         "--follow-up-action",
         help="Repeat to add multiple follow-up actions.",
     ),
+    tags: list[str] = typer.Option(
+        None,
+        "--tag",
+        help="Repeat to add multiple review tags.",
+    ),
     rating: int | None = typer.Option(None, "--rating"),
 ) -> None:
     """Create one immutable review for a closed position."""
@@ -503,6 +508,7 @@ def create_trade_review(
             what_went_poorly=what_went_poorly,
             lessons_learned=lessons_learned,
             follow_up_actions=follow_up_actions,
+            tags=tags,
             rating=rating,
         )
     )
@@ -771,6 +777,11 @@ def list_trade_reviews(
     rating: int | None = typer.Option(None, "--rating"),
     purpose: str | None = typer.Option(None, "--purpose"),
     direction: str | None = typer.Option(None, "--direction"),
+    tags: list[str] = typer.Option(
+        None,
+        "--tag",
+        help="Repeat to require multiple review tags.",
+    ),
     sort: ListSortOrder = typer.Option("oldest", "--sort"),
 ) -> None:
     """List persisted trade reviews from the local JSON store."""
@@ -778,6 +789,7 @@ def list_trade_reviews(
         rating=rating,
         purpose=purpose,
         direction=direction,
+        tags=tags,
         sort=sort,
     )
     if not reviews:
@@ -786,7 +798,7 @@ def list_trade_reviews(
 
     typer.echo(
         "TRADE_REVIEW_ID | POSITION_ID | TRADE_PLAN_ID | PURPOSE | DIRECTION | "
-        "RATING | SUMMARY | REVIEWED_AT"
+        "RATING | TAGS | SUMMARY | REVIEWED_AT"
     )
     for item in reviews:
         typer.echo(
@@ -798,6 +810,7 @@ def list_trade_reviews(
                     item.trade_idea.purpose,
                     item.trade_idea.direction,
                     "" if item.review.rating is None else str(item.review.rating),
+                    _format_tag_list(item.review.tags),
                     item.review.summary,
                     item.review.reviewed_at.isoformat(),
                 ]
@@ -821,6 +834,7 @@ def show_trade_review(trade_review_id: str) -> None:
             ("position_id", review.position_id),
             ("trade_plan_id", detail.trade_plan.id),
             ("rating", _format_optional_show_value(review.rating)),
+            ("tags", _format_tag_list(review.tags) or "None"),
             ("reviewed_at", review.reviewed_at.isoformat()),
             ("summary", review.summary),
             ("what_went_well", review.what_went_well),
@@ -1320,6 +1334,13 @@ def _format_string_list(values: list[str]) -> str:
     return "; ".join(values)
 
 
+def _format_tag_list(values: list[str]) -> str:
+    """Format normalized review tags for compact CLI output."""
+    if not values:
+        return ""
+    return ",".join(values)
+
+
 def _run_service(func):
     """Run a service call and translate domain errors into CLI output."""
     try:
@@ -1416,6 +1437,7 @@ def _echo_trade_review(review: TradeReview) -> None:
     typer.echo(f"trade_review_id: {review.id}")
     typer.echo(f"position_id: {review.position_id}")
     typer.echo(f"rating: {'' if review.rating is None else review.rating}")
+    typer.echo(f"tags: {_format_tag_list(review.tags)}")
     typer.echo(f"summary: {review.summary}")
     typer.echo(
         f"lessons_learned_count: {len(review.lessons_learned)}"

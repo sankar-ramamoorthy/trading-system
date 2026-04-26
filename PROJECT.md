@@ -6,7 +6,7 @@ Milestone 5 - Review, learning, and local operations
 
 ## Current Slice
 
-Select the first narrow Milestone 5 slice after closing Milestone 4.
+Implement review tags and filtering as the first narrow Milestone 5 slice.
 
 ## Constraints
 
@@ -22,7 +22,9 @@ Select the first narrow Milestone 5 slice after closing Milestone 4.
 
 ## Next Steps
 
-- Choose the first Milestone 5 issue from review tagging/filtering, narrow journal export, or local backup guidance.
+- Add creation-time tags to `TradeReview`.
+- Surface tags in review list/detail CLI output.
+- Support `list-trade-reviews --tag` filtering.
 - Keep reporting scoped to completed trades and explicit review records.
 - Preserve the distinction between canonical trade records, read-only market context, and derived read models.
 - Use the context source port for any future provider adapters without coupling services to provider APIs.
