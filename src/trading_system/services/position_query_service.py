@@ -8,6 +8,7 @@ from uuid import UUID
 from trading_system.domain.trading.fill import Fill
 from trading_system.domain.trading.idea import TradeIdea
 from trading_system.domain.trading.lifecycle import LifecycleEvent
+from trading_system.domain.trading.market_context import MarketContextSnapshot
 from trading_system.domain.trading.order_intent import OrderIntent
 from trading_system.domain.trading.plan import TradePlan
 from trading_system.domain.trading.position import Position
@@ -15,6 +16,7 @@ from trading_system.domain.trading.review import TradeReview
 from trading_system.ports.repositories import (
     FillRepository,
     LifecycleEventRepository,
+    MarketContextSnapshotRepository,
     OrderIntentRepository,
     PositionRepository,
     TradeIdeaRepository,
@@ -34,6 +36,7 @@ class PositionDetail:
     fills: list[Fill]
     review: TradeReview | None
     realized_pnl: Decimal | None
+    market_context_snapshots: list[MarketContextSnapshot]
 
 
 class PositionQueryService:
@@ -48,6 +51,7 @@ class PositionQueryService:
         fill_repository: FillRepository,
         review_repository: TradeReviewRepository,
         lifecycle_event_repository: LifecycleEventRepository,
+        market_context_snapshot_repository: MarketContextSnapshotRepository,
     ) -> None:
         self._positions = position_repository
         self._plans = plan_repository
@@ -56,6 +60,7 @@ class PositionQueryService:
         self._fills = fill_repository
         self._reviews = review_repository
         self._lifecycle_events = lifecycle_event_repository
+        self._market_context_snapshots = market_context_snapshot_repository
 
     def list_positions(
         self,
@@ -109,6 +114,10 @@ class PositionQueryService:
             key=lambda order_intent: order_intent.created_at,
         )
         review = self._reviews.get_by_position_id(position.id)
+        market_context_snapshots = sorted(
+            self._market_context_snapshots.list_by_target("Position", position.id),
+            key=lambda snapshot: snapshot.captured_at,
+        )
         return PositionDetail(
             position=position,
             trade_plan=plan,
@@ -117,6 +126,7 @@ class PositionQueryService:
             fills=fills,
             review=review,
             realized_pnl=_calculate_realized_pnl(position, fills),
+            market_context_snapshots=market_context_snapshots,
         )
 
     def get_position_timeline(self, position_id: UUID) -> list[LifecycleEvent]:

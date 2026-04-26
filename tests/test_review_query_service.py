@@ -1,14 +1,16 @@
 """Tests for read-only trade review retrieval workflows."""
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
 import pytest
 
 from trading_system.domain.rules.rule_evaluation import RuleEvaluation
+from trading_system.domain.trading.market_context import MarketContextSnapshot
 from trading_system.infrastructure.memory.repositories import (
     InMemoryFillRepository,
+    InMemoryMarketContextSnapshotRepository,
     InMemoryPositionRepository,
     InMemoryTradeIdeaRepository,
     InMemoryTradePlanRepository,
@@ -79,6 +81,35 @@ def test_get_trade_review_detail_returns_linked_trade_context() -> None:
     assert detail.realized_pnl == Decimal("150.00")
 
 
+def test_get_trade_review_detail_includes_only_linked_market_context() -> None:
+    """Review detail returns context snapshots linked to that review only."""
+    workflow = _Workflow()
+    review = workflow.create_closed_review("Followed the plan.")
+    position = workflow.positions.get(review.position_id)
+    older = workflow.add_market_context_snapshot(
+        instrument_id=position.instrument_id,
+        target_type="TradeReview",
+        target_id=review.id,
+        captured_at=datetime(2026, 4, 1, tzinfo=UTC),
+    )
+    newer = workflow.add_market_context_snapshot(
+        instrument_id=position.instrument_id,
+        target_type="TradeReview",
+        target_id=review.id,
+        captured_at=datetime(2026, 4, 2, tzinfo=UTC),
+    )
+    workflow.add_market_context_snapshot(
+        instrument_id=position.instrument_id,
+        target_type="Position",
+        target_id=position.id,
+        captured_at=datetime(2026, 4, 3, tzinfo=UTC),
+    )
+
+    detail = workflow.query.get_trade_review_detail(review.id)
+
+    assert detail.market_context_snapshots == [older, newer]
+
+
 def test_get_trade_review_detail_rejects_missing_review() -> None:
     """Review detail requires an existing trade review."""
     workflow = _Workflow()
@@ -95,6 +126,7 @@ class _Workflow:
         self.positions = InMemoryPositionRepository()
         self.fills = InMemoryFillRepository()
         self.reviews = InMemoryTradeReviewRepository()
+        self.market_context_snapshots = InMemoryMarketContextSnapshotRepository()
         self.planning = TradePlanningService(self.ideas, self.theses, self.plans)
         self.position_service = PositionService(
             plan_repository=self.plans,
@@ -119,6 +151,7 @@ class _Workflow:
             plan_repository=self.plans,
             idea_repository=self.ideas,
             fill_repository=self.fills,
+            market_context_snapshot_repository=self.market_context_snapshots,
         )
 
     def create_closed_review(
@@ -168,6 +201,27 @@ class _Workflow:
             what_went_poorly="Exit could be faster.",
             rating=rating,
         )
+
+    def add_market_context_snapshot(
+        self,
+        *,
+        instrument_id,
+        target_type: str,
+        target_id,
+        captured_at: datetime,
+    ) -> MarketContextSnapshot:
+        snapshot = MarketContextSnapshot(
+            instrument_id=instrument_id,
+            target_type=target_type,
+            target_id=target_id,
+            context_type="price_snapshot",
+            source="test",
+            observed_at=captured_at,
+            captured_at=captured_at,
+            payload={"symbol": "AAPL"},
+        )
+        self.market_context_snapshots.add(snapshot)
+        return snapshot
 
 
 class _NoOpLifecycleEventRepository:

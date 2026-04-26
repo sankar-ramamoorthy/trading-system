@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from decimal import Decimal
+import json
 import os
 from pathlib import Path
 from typing import Literal
@@ -10,16 +11,24 @@ from uuid import UUID, uuid4
 import typer
 
 from trading_system.domain.rules.rule import Rule
+from trading_system.domain.trading.market_context import MarketContextSnapshot
 from trading_system.domain.trading.order_intent import OrderIntent, OrderSide, OrderType
 from trading_system.domain.trading.review import TradeReview
 from trading_system.infrastructure.json.repositories import (
     JsonRepositorySet,
     build_json_repositories,
 )
+from trading_system.infrastructure.json.market_context_source import (
+    JsonMarketContextImportSource,
+)
 from trading_system.services.cancel_order_intent_service import CancelOrderIntentService
 from trading_system.rules_engine.implementations.risk_defined_rule import RiskDefinedRule
 from trading_system.services.create_order_intent_service import CreateOrderIntentService
 from trading_system.services.fill_service import FillService
+from trading_system.services.market_context_service import (
+    MarketContextImportService,
+    MarketContextQueryService,
+)
 from trading_system.services.position_query_service import PositionQueryService
 from trading_system.services.position_service import PositionService
 from trading_system.services.review_query_service import ReviewQueryService
@@ -30,6 +39,7 @@ from trading_system.services.trade_query_service import TradeQueryService
 
 app = typer.Typer(help="Structured discretionary trading system.")
 ListSortOrder = Literal["oldest", "newest"]
+ContextTargetOption = Literal["trade-plan", "position", "trade-review"]
 
 
 @app.command()
@@ -753,6 +763,7 @@ def show_trade_plan(trade_plan_id: str) -> None:
             for position in detail.positions
         ],
     )
+    _echo_market_context_section(detail.market_context_snapshots)
 
 
 @app.command("list-trade-reviews")
@@ -843,6 +854,7 @@ def show_trade_review(trade_review_id: str) -> None:
             ("horizon", detail.trade_idea.horizon),
         ],
     )
+    _echo_market_context_section(detail.market_context_snapshots)
 
 
 @app.command("list-positions")
@@ -978,6 +990,7 @@ def show_position(position_id: str) -> None:
                 ("summary", detail.review.summary),
             ],
         )
+    _echo_market_context_section(detail.market_context_snapshots)
 
 
 @app.command("show-position-timeline")
@@ -1001,6 +1014,135 @@ def show_position_timeline(position_id: str) -> None:
                 ]
             )
         )
+
+
+@app.command("import-context")
+def import_context(
+    file: Path = typer.Argument(...),
+    instrument_id: str | None = typer.Option(None, "--instrument-id"),
+    target_type: ContextTargetOption | None = typer.Option(None, "--target-type"),
+    target_id: str | None = typer.Option(None, "--target-id"),
+    source: str = typer.Option("local-file", "--source"),
+) -> None:
+    """Import one read-only market context snapshot from a local JSON file."""
+    repositories = _repositories()
+    snapshot = _run_service(
+        lambda: MarketContextImportService(
+            snapshot_repository=repositories.market_context_snapshots,
+            plan_repository=repositories.plans,
+            position_repository=repositories.positions,
+            review_repository=repositories.reviews,
+            idea_repository=repositories.ideas,
+        ).import_context(
+            JsonMarketContextImportSource(file),
+            source=source,
+            source_ref=str(file),
+            instrument_id=None if instrument_id is None else _parse_uuid(instrument_id),
+            target_type=None if target_type is None else _context_target_type(target_type),
+            target_id=None if target_id is None else _parse_uuid(target_id),
+        )
+    )
+    _echo_context_snapshot_result(snapshot)
+
+
+@app.command("copy-context")
+def copy_context(
+    snapshot_id: str,
+    target_type: ContextTargetOption = typer.Option(..., "--target-type"),
+    target_id: str = typer.Option(..., "--target-id"),
+) -> None:
+    """Copy an existing context snapshot to a planning or review target."""
+    repositories = _repositories()
+    snapshot = _run_service(
+        lambda: MarketContextImportService(
+            snapshot_repository=repositories.market_context_snapshots,
+            plan_repository=repositories.plans,
+            position_repository=repositories.positions,
+            review_repository=repositories.reviews,
+            idea_repository=repositories.ideas,
+        ).copy_context_to_target(
+            _parse_uuid(snapshot_id),
+            target_type=_context_target_type(target_type),
+            target_id=_parse_uuid(target_id),
+        )
+    )
+    _echo_context_snapshot_result(snapshot)
+
+
+@app.command("list-context")
+def list_context(
+    instrument_id: str | None = typer.Option(None, "--instrument-id"),
+    target_type: ContextTargetOption | None = typer.Option(None, "--target-type"),
+    target_id: str | None = typer.Option(None, "--target-id"),
+    context_type: str | None = typer.Option(None, "--context-type"),
+    source: str | None = typer.Option(None, "--source"),
+    observed_from: str | None = typer.Option(None, "--observed-from"),
+    observed_to: str | None = typer.Option(None, "--observed-to"),
+    captured_from: str | None = typer.Option(None, "--captured-from"),
+    captured_to: str | None = typer.Option(None, "--captured-to"),
+) -> None:
+    """List stored read-only market context snapshots."""
+    query_service = _market_context_query_service()
+    snapshots = _run_service(
+        lambda: _list_context_snapshots(
+            query_service,
+            instrument_id=instrument_id,
+            target_type=target_type,
+            target_id=target_id,
+            context_type=context_type,
+            source=source,
+            observed_from=observed_from,
+            observed_to=observed_to,
+            captured_from=captured_from,
+            captured_to=captured_to,
+        )
+    )
+    if not snapshots:
+        typer.echo("No market context snapshots found.")
+        return
+
+    typer.echo(
+        "MARKET_CONTEXT_SNAPSHOT_ID | INSTRUMENT_ID | TARGET_TYPE | TARGET_ID | "
+        "CONTEXT_TYPE | SOURCE | OBSERVED_AT | CAPTURED_AT"
+    )
+    for snapshot in snapshots:
+        typer.echo(
+            " | ".join(
+                [
+                    str(snapshot.id),
+                    str(snapshot.instrument_id),
+                    _format_optional_text(snapshot.target_type),
+                    "" if snapshot.target_id is None else str(snapshot.target_id),
+                    snapshot.context_type,
+                    snapshot.source,
+                    snapshot.observed_at.isoformat(),
+                    snapshot.captured_at.isoformat(),
+                ]
+            )
+        )
+
+
+@app.command("show-context")
+def show_context(snapshot_id: str) -> None:
+    """Show one stored read-only market context snapshot."""
+    snapshot = _run_service(
+        lambda: _market_context_query_service().get_snapshot(_parse_uuid(snapshot_id))
+    )
+    _echo_section(
+        "Market context snapshot",
+        [
+            ("instrument_id", snapshot.instrument_id),
+            ("target_type", _format_optional_text(snapshot.target_type)),
+            ("target_id", _format_optional_show_value(snapshot.target_id)),
+            ("context_type", snapshot.context_type),
+            ("source", snapshot.source),
+            ("source_ref", _format_optional_text(snapshot.source_ref)),
+            ("observed_at", snapshot.observed_at.isoformat()),
+            ("captured_at", snapshot.captured_at.isoformat()),
+            ("payload", json.dumps(snapshot.payload, sort_keys=True)),
+        ],
+        heading_value=snapshot.id,
+    )
 
 
 def _repositories() -> JsonRepositorySet:
@@ -1027,6 +1169,7 @@ def _position_query_service() -> PositionQueryService:
         fill_repository=repositories.fills,
         review_repository=repositories.reviews,
         lifecycle_event_repository=repositories.lifecycle_events,
+        market_context_snapshot_repository=repositories.market_context_snapshots,
     )
 
 
@@ -1040,6 +1183,7 @@ def _trade_query_service() -> TradeQueryService:
         evaluation_repository=repositories.evaluations,
         order_intent_repository=repositories.order_intents,
         position_repository=repositories.positions,
+        market_context_snapshot_repository=repositories.market_context_snapshots,
     )
 
 
@@ -1052,6 +1196,15 @@ def _review_query_service() -> ReviewQueryService:
         plan_repository=repositories.plans,
         idea_repository=repositories.ideas,
         fill_repository=repositories.fills,
+        market_context_snapshot_repository=repositories.market_context_snapshots,
+    )
+
+
+def _market_context_query_service() -> MarketContextQueryService:
+    """Build a market context query service from JSON repositories."""
+    repositories = _repositories()
+    return MarketContextQueryService(
+        snapshot_repository=repositories.market_context_snapshots,
     )
 
 
@@ -1084,6 +1237,55 @@ def _parse_decimal(value: str) -> Decimal:
         return Decimal(value)
     except Exception as exc:
         raise typer.BadParameter("must be a valid decimal") from exc
+
+
+def _parse_optional_context_datetime(value: str | None) -> datetime | None:
+    """Parse optional ISO datetime filters with a clear Typer error."""
+    if value is None:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise typer.BadParameter("must be a valid ISO datetime") from exc
+
+
+def _context_target_type(value: ContextTargetOption) -> str:
+    """Map CLI target names to canonical domain type labels."""
+    return {
+        "trade-plan": "TradePlan",
+        "position": "Position",
+        "trade-review": "TradeReview",
+    }[value]
+
+
+def _list_context_snapshots(
+    query_service: MarketContextQueryService,
+    *,
+    instrument_id: str | None,
+    target_type: ContextTargetOption | None,
+    target_id: str | None,
+    context_type: str | None,
+    source: str | None,
+    observed_from: str | None,
+    observed_to: str | None,
+    captured_from: str | None,
+    captured_to: str | None,
+):
+    """Resolve optional context list filters."""
+    if target_type is None or target_id is None:
+        if target_type is not None or target_id is not None:
+            raise ValueError("Target type and target id must be provided together.")
+    return query_service.list_snapshots(
+        instrument_id=None if instrument_id is None else _parse_uuid(instrument_id),
+        target_type=None if target_type is None else _context_target_type(target_type),
+        target_id=None if target_id is None else _parse_uuid(target_id),
+        context_type=context_type,
+        source=source,
+        observed_from=_parse_optional_context_datetime(observed_from),
+        observed_to=_parse_optional_context_datetime(observed_to),
+        captured_from=_parse_optional_context_datetime(captured_from),
+        captured_to=_parse_optional_context_datetime(captured_to),
+    )
 
 
 def _format_optional_datetime(value: datetime | None) -> str:
@@ -1163,6 +1365,37 @@ def _echo_collection_section(
         if index != len(items) - 1:
             typer.echo("")
     typer.echo("")
+
+
+def _echo_market_context_section(snapshots: list[MarketContextSnapshot]) -> None:
+    """Print embedded market context snapshot metadata without payloads."""
+    _echo_collection_section(
+        "Market context",
+        "No market context snapshots found.",
+        [
+            [
+                ("market_context_snapshot_id", snapshot.id),
+                ("context_type", snapshot.context_type),
+                ("source", snapshot.source),
+                ("source_ref", _format_optional_text(snapshot.source_ref)),
+                ("observed_at", snapshot.observed_at.isoformat()),
+                ("captured_at", snapshot.captured_at.isoformat()),
+            ]
+            for snapshot in snapshots
+        ],
+    )
+
+
+def _echo_context_snapshot_result(snapshot: MarketContextSnapshot) -> None:
+    """Print a compact market context result for command chaining."""
+    typer.echo(f"market_context_snapshot_id: {snapshot.id}")
+    typer.echo(f"instrument_id: {snapshot.instrument_id}")
+    typer.echo(f"context_type: {snapshot.context_type}")
+    typer.echo(f"source: {snapshot.source}")
+    typer.echo(f"observed_at: {snapshot.observed_at.isoformat()}")
+    typer.echo(f"captured_at: {snapshot.captured_at.isoformat()}")
+    typer.echo(f"target_type: {_format_optional_text(snapshot.target_type)}")
+    typer.echo(f"target_id: {_format_optional_show_value(snapshot.target_id)}")
 
 
 def _echo_order_intent(order_intent: OrderIntent) -> None:

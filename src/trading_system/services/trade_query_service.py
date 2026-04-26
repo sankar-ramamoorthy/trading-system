@@ -6,11 +6,13 @@ from uuid import UUID
 
 from trading_system.domain.rules.rule_evaluation import RuleEvaluation
 from trading_system.domain.trading.idea import TradeIdea
+from trading_system.domain.trading.market_context import MarketContextSnapshot
 from trading_system.domain.trading.order_intent import OrderIntent
 from trading_system.domain.trading.plan import TradePlan
 from trading_system.domain.trading.position import Position
 from trading_system.domain.trading.thesis import TradeThesis
 from trading_system.ports.repositories import (
+    MarketContextSnapshotRepository,
     OrderIntentRepository,
     PositionRepository,
     RuleEvaluationRepository,
@@ -52,6 +54,7 @@ class TradePlanDetail:
     rule_evaluations: list[RuleEvaluation]
     order_intents: list[OrderIntent]
     positions: list[Position]
+    market_context_snapshots: list[MarketContextSnapshot]
 
 
 class TradeQueryService:
@@ -65,6 +68,7 @@ class TradeQueryService:
         evaluation_repository: RuleEvaluationRepository,
         order_intent_repository: OrderIntentRepository,
         position_repository: PositionRepository,
+        market_context_snapshot_repository: MarketContextSnapshotRepository,
     ) -> None:
         self._ideas = idea_repository
         self._theses = thesis_repository
@@ -72,6 +76,7 @@ class TradeQueryService:
         self._evaluations = evaluation_repository
         self._order_intents = order_intent_repository
         self._positions = position_repository
+        self._market_context_snapshots = market_context_snapshot_repository
 
     def list_trade_ideas(
         self,
@@ -198,6 +203,11 @@ class TradeQueryService:
             key=lambda position: position.opened_at,
             sort="oldest",
         )
+        market_context_snapshots = _sort_items(
+            self._market_context_snapshots.list_by_target("TradePlan", plan.id),
+            key=lambda snapshot: snapshot.captured_at,
+            sort="oldest",
+        )
         return TradePlanDetail(
             trade_plan=plan,
             trade_idea=idea,
@@ -205,6 +215,7 @@ class TradeQueryService:
             rule_evaluations=evaluations,
             order_intents=order_intents,
             positions=positions,
+            market_context_snapshots=market_context_snapshots,
         )
 
 

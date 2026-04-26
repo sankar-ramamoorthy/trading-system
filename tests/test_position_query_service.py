@@ -1,6 +1,6 @@
 """Tests for read-only position retrieval workflows."""
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
@@ -9,11 +9,13 @@ import pytest
 from trading_system.domain.rules.rule_evaluation import RuleEvaluation
 from trading_system.domain.trading.fill import Fill
 from trading_system.domain.trading.lifecycle import LifecycleEvent
+from trading_system.domain.trading.market_context import MarketContextSnapshot
 from trading_system.domain.trading.order_intent import OrderSide, OrderType
 from trading_system.domain.trading.position import Position
 from trading_system.infrastructure.memory.repositories import (
     InMemoryFillRepository,
     InMemoryLifecycleEventRepository,
+    InMemoryMarketContextSnapshotRepository,
     InMemoryOrderIntentRepository,
     InMemoryPositionRepository,
     InMemoryRuleEvaluationRepository,
@@ -132,6 +134,34 @@ def test_get_position_detail_returns_linked_records() -> None:
     assert detail.realized_pnl == Decimal("100")
 
 
+def test_get_position_detail_includes_only_linked_market_context() -> None:
+    """Position detail returns context snapshots linked to that position only."""
+    workflow = _workflow()
+    position = workflow.open_position()
+    older = workflow.add_market_context_snapshot(
+        instrument_id=position.instrument_id,
+        target_type="Position",
+        target_id=position.id,
+        captured_at=datetime(2026, 4, 1, tzinfo=UTC),
+    )
+    newer = workflow.add_market_context_snapshot(
+        instrument_id=position.instrument_id,
+        target_type="Position",
+        target_id=position.id,
+        captured_at=datetime(2026, 4, 2, tzinfo=UTC),
+    )
+    workflow.add_market_context_snapshot(
+        instrument_id=position.instrument_id,
+        target_type="TradePlan",
+        target_id=position.trade_plan_id,
+        captured_at=datetime(2026, 4, 3, tzinfo=UTC),
+    )
+
+    detail = workflow.query.get_position_detail(position.id)
+
+    assert detail.market_context_snapshots == [older, newer]
+
+
 def test_get_position_detail_computes_realized_pnl_for_multiple_buys() -> None:
     """Closed positions compute realized P&L from total buy cost and sell proceeds."""
     workflow = _workflow()
@@ -228,6 +258,7 @@ class _Workflow:
         self.order_intents = InMemoryOrderIntentRepository()
         self.lifecycle_events = InMemoryLifecycleEventRepository()
         self.reviews = InMemoryTradeReviewRepository()
+        self.market_context_snapshots = InMemoryMarketContextSnapshotRepository()
         self.evaluations = InMemoryRuleEvaluationRepository()
         self.planning = TradePlanningService(self.ideas, self.theses, self.plans)
         self.position_service = PositionService(
@@ -261,6 +292,7 @@ class _Workflow:
             fill_repository=self.fills,
             review_repository=self.reviews,
             lifecycle_event_repository=self.lifecycle_events,
+            market_context_snapshot_repository=self.market_context_snapshots,
         )
 
     def open_position(self, *, purpose: str = "swing") -> Position:
@@ -302,6 +334,27 @@ class _Workflow:
             quantity=Decimal("50"),
             limit_price=Decimal("20"),
         )
+
+    def add_market_context_snapshot(
+        self,
+        *,
+        instrument_id,
+        target_type: str,
+        target_id,
+        captured_at: datetime,
+    ) -> MarketContextSnapshot:
+        snapshot = MarketContextSnapshot(
+            instrument_id=instrument_id,
+            target_type=target_type,
+            target_id=target_id,
+            context_type="price_snapshot",
+            source="test",
+            observed_at=captured_at,
+            captured_at=captured_at,
+            payload={"symbol": "AAPL"},
+        )
+        self.market_context_snapshots.add(snapshot)
+        return snapshot
 
 
 def _workflow() -> _Workflow:
