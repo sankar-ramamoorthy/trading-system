@@ -59,6 +59,41 @@ The slice stays narrow:
 - no reporting/export surface is introduced yet
 - no generated coaching or AI review content is introduced
 
+## Third Implementation Slice
+
+The third Milestone 5 slice is Markdown journal export for completed reviewed trades.
+
+This slice adds `export-review-journal --output <path>` and reuses the existing review filters:
+
+- rating
+- purpose
+- direction
+- repeated tags
+- process score
+- setup quality
+- execution quality
+- exit quality
+- sort order
+
+The export writes one Markdown section per matching review and includes factual journal fields:
+
+- review identity and reviewed timestamp
+- linked position and trade plan identities
+- purpose and direction
+- realized P&L
+- rating, tags, and quality scores
+- summary, what went well, and what went poorly
+- lessons learned and follow-up actions
+- linked market-context metadata
+
+The slice stays narrow:
+
+- parent output directories must already exist
+- existing files require explicit `--overwrite`
+- empty results write no file
+- context payloads stay isolated to `show-context`
+- no CSV, charts, aggregate statistics, backup/restore, review editing, analytics, recommendations, or generated coaching are introduced
+
 ## Local Backup And Export Expectations
 
 - the system should remain local-first

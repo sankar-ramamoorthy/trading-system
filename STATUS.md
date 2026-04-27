@@ -22,7 +22,7 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - Manual fill recording with optional `OrderIntent` linkage
 - Automatic position state tracking and closure
 - Read-side realized P&L for closed positions
-- Trade review creation, tagging, quality scoring, filtering, and inspection
+- Trade review creation, tagging, quality scoring, filtering, inspection, and Markdown journal export
 - Lifecycle event audit trail and position timeline output
 - CLI-based write and read workflows
 - Filtering and sorting for core read models
@@ -63,9 +63,13 @@ Review tags and filtering are complete as the first narrow Milestone 5 implement
 
 This slice adds creation-time tags to trade reviews, shows tags in review list/detail output, and supports `list-trade-reviews --tag` filters. It does not add review editing, reporting/export, a tag taxonomy, generated coaching, or broader analytics.
 
-Review quality scores are the second narrow Milestone 5 implementation slice.
+Review quality scores are complete as the second narrow Milestone 5 implementation slice.
 
 This slice adds optional 1-5 process, setup, execution, and exit quality scores to trade reviews, shows them in review read output, and supports exact score filters. It does not add review editing, reporting/export, generated coaching, or broader analytics.
+
+Markdown journal export is complete as the third narrow Milestone 5 implementation slice.
+
+This slice adds `export-review-journal --output <path>` for reviewed trades. It reuses review filters, writes one Markdown section per review, refuses to overwrite existing files without `--overwrite`, omits full market-context payloads, and reports `No trade reviews found.` without creating a file when filters match nothing. It does not add analytics, recommendations, generated coaching, CSV export, backup/restore, or review editing.
 
 ## Immediate Design Guardrails
 

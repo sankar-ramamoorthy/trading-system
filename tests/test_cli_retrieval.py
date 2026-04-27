@@ -697,6 +697,174 @@ def test_list_trade_reviews_empty_state(tmp_path) -> None:
     assert "No trade reviews found." in result.output
 
 
+def test_export_review_journal_writes_markdown_file(tmp_path) -> None:
+    """The journal export command writes matching reviews to the requested file."""
+    store_path = tmp_path / "store.json"
+    position_id = _seed_closed_position(
+        store_path,
+        tags=["missed-exit"],
+        process_score=5,
+        setup_quality=4,
+        execution_quality=3,
+        exit_quality=2,
+    )
+    review_id = build_json_repositories(store_path).reviews.get_by_position_id(position_id).id
+    output_path = tmp_path / "journal.md"
+
+    result = runner.invoke(
+        app,
+        ["export-review-journal", "--output", str(output_path)],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert result.exit_code == 0
+    assert f"Exported trade review journal: {output_path}" in result.output
+    markdown = output_path.read_text(encoding="utf-8")
+    assert "# Trade Review Journal" in markdown
+    assert f"## Review 1: {review_id}" in markdown
+    assert f"- Position id: {position_id}" in markdown
+    assert "- Trade plan id:" in markdown
+    assert "- Purpose: swing" in markdown
+    assert "- Direction: long" in markdown
+    assert "- Realized P&L: 150.00" in markdown
+    assert "- Tags: missed-exit" in markdown
+    assert "- Process score: 5" in markdown
+    assert "- Setup quality: 4" in markdown
+    assert "- Execution quality: 3" in markdown
+    assert "- Exit quality: 2" in markdown
+    assert "- Summary: Followed the plan." in markdown
+
+
+def test_export_review_journal_refuses_existing_output_without_overwrite(tmp_path) -> None:
+    """Existing output files require explicit overwrite."""
+    store_path = tmp_path / "store.json"
+    _seed_closed_position(store_path)
+    output_path = tmp_path / "journal.md"
+    output_path.write_text("existing", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["export-review-journal", "--output", str(output_path)],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert result.exit_code != 0
+    assert "Output file already exists. Use --overwrite to replace it." in result.output
+    assert output_path.read_text(encoding="utf-8") == "existing"
+
+
+def test_export_review_journal_requires_existing_parent_directory(tmp_path) -> None:
+    """The export command does not create parent directories implicitly."""
+    store_path = tmp_path / "store.json"
+    _seed_closed_position(store_path)
+    output_path = tmp_path / "missing" / "journal.md"
+
+    result = runner.invoke(
+        app,
+        ["export-review-journal", "--output", str(output_path)],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert result.exit_code != 0
+    assert "Output parent directory does not exist." in result.output
+    assert not output_path.exists()
+
+
+def test_export_review_journal_overwrites_when_requested(tmp_path) -> None:
+    """The overwrite flag replaces an existing output file."""
+    store_path = tmp_path / "store.json"
+    _seed_closed_position(store_path)
+    output_path = tmp_path / "journal.md"
+    output_path.write_text("existing", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["export-review-journal", "--output", str(output_path), "--overwrite"],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert result.exit_code == 0
+    assert "# Trade Review Journal" in output_path.read_text(encoding="utf-8")
+
+
+def test_export_review_journal_supports_review_filters(tmp_path) -> None:
+    """Journal export reuses review filters, including tag and quality scores."""
+    store_path = tmp_path / "store.json"
+    first_position_id = _seed_closed_position(
+        store_path,
+        purpose="swing",
+        direction="long",
+        rating=4,
+        tags=["missed-exit", "risk-management"],
+        process_score=5,
+        setup_quality=4,
+        execution_quality=3,
+        exit_quality=2,
+    )
+    second_position_id = _seed_closed_position(
+        store_path,
+        purpose="day_trade",
+        direction="short",
+        rating=2,
+        tags=["missed-exit"],
+        process_score=3,
+        setup_quality=2,
+        execution_quality=2,
+        exit_quality=1,
+    )
+    output_path = tmp_path / "filtered.md"
+
+    result = runner.invoke(
+        app,
+        [
+            "export-review-journal",
+            "--output",
+            str(output_path),
+            "--rating",
+            "4",
+            "--purpose",
+            "swing",
+            "--direction",
+            "long",
+            "--tag",
+            "risk_management",
+            "--process-score",
+            "5",
+            "--setup-quality",
+            "4",
+            "--execution-quality",
+            "3",
+            "--exit-quality",
+            "2",
+            "--sort",
+            "newest",
+        ],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert result.exit_code == 0
+    markdown = output_path.read_text(encoding="utf-8")
+    assert str(first_position_id) in markdown
+    assert str(second_position_id) not in markdown
+
+
+def test_export_review_journal_empty_result_writes_no_file(tmp_path) -> None:
+    """Empty filtered exports report clearly without creating an output file."""
+    store_path = tmp_path / "store.json"
+    _seed_closed_position(store_path, tags=["risk-management"])
+    output_path = tmp_path / "empty.md"
+
+    result = runner.invoke(
+        app,
+        ["export-review-journal", "--output", str(output_path), "--tag", "missed-exit"],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert result.exit_code == 0
+    assert result.output == "No trade reviews found.\n"
+    assert not output_path.exists()
+
+
 def test_show_trade_review_rejects_invalid_uuid(tmp_path) -> None:
     """The review detail command reports invalid UUID arguments clearly."""
     store_path = tmp_path / "store.json"

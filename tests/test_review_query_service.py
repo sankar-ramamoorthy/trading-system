@@ -19,6 +19,9 @@ from trading_system.infrastructure.memory.repositories import (
 )
 from trading_system.services.fill_service import FillService
 from trading_system.services.position_service import PositionService
+from trading_system.services.review_journal_export_service import (
+    ReviewJournalExportService,
+)
 from trading_system.services.review_query_service import ReviewQueryService
 from trading_system.services.review_service import ReviewService
 from trading_system.services.trade_planning_service import TradePlanningService
@@ -146,6 +149,106 @@ def test_get_trade_review_detail_rejects_missing_review() -> None:
         workflow.query.get_trade_review_detail(uuid4())
 
 
+def test_review_journal_export_renders_single_review_with_context_metadata() -> None:
+    """Markdown export includes journal fields and context metadata without payload."""
+    workflow = _Workflow()
+    review = workflow.create_closed_review(
+        "Followed the plan.",
+        rating=4,
+        tags=["missed-exit"],
+        process_score=5,
+        setup_quality=4,
+        execution_quality=3,
+        exit_quality=2,
+        lessons_learned=["Define exit criteria earlier."],
+        follow_up_actions=["Add exit checklist."],
+    )
+    position = workflow.positions.get(review.position_id)
+    snapshot = workflow.add_market_context_snapshot(
+        instrument_id=position.instrument_id,
+        target_type="TradeReview",
+        target_id=review.id,
+        captured_at=datetime(2026, 4, 1, tzinfo=UTC),
+    )
+
+    markdown = ReviewJournalExportService(workflow.query).export_markdown()
+
+    assert markdown is not None
+    assert "# Trade Review Journal" in markdown
+    assert f"## Review 1: {review.id}" in markdown
+    assert f"- Review id: {review.id}" in markdown
+    assert f"- Position id: {review.position_id}" in markdown
+    assert "- Purpose: swing" in markdown
+    assert "- Direction: long" in markdown
+    assert "- Realized P&L: 150.00" in markdown
+    assert "- Rating: 4" in markdown
+    assert "- Tags: missed-exit" in markdown
+    assert "- Process score: 5" in markdown
+    assert "- Setup quality: 4" in markdown
+    assert "- Execution quality: 3" in markdown
+    assert "- Exit quality: 2" in markdown
+    assert "- Summary: Followed the plan." in markdown
+    assert "- What went well: Entry was clean." in markdown
+    assert "- What went poorly: Exit could be faster." in markdown
+    assert "- Define exit criteria earlier." in markdown
+    assert "- Add exit checklist." in markdown
+    assert f"Market context snapshot id: {snapshot.id}" in markdown
+    assert "context type: price_snapshot" in markdown
+    assert "source: test" in markdown
+    assert "payload" not in markdown
+    assert "AAPL" not in markdown
+
+
+def test_review_journal_export_preserves_filtered_sort_order() -> None:
+    """Markdown export uses the existing review query filters and sort order."""
+    workflow = _Workflow()
+    first_review = workflow.create_closed_review(
+        "First review.",
+        tags=["missed-exit"],
+        exit_quality=2,
+    )
+    second_review = workflow.create_closed_review(
+        "Second review.",
+        tags=["missed-exit"],
+        exit_quality=1,
+    )
+    second_review.reviewed_at = first_review.reviewed_at + timedelta(seconds=1)
+
+    markdown = ReviewJournalExportService(workflow.query).export_markdown(
+        tags=["missed_exit"],
+        sort="newest",
+    )
+
+    assert markdown is not None
+    assert markdown.index(str(second_review.id)) < markdown.index(str(first_review.id))
+    assert "First review." in markdown
+    assert "Second review." in markdown
+
+
+def test_review_journal_export_renders_missing_optional_fields() -> None:
+    """Missing tags, scores, lessons, follow-ups, and context render explicitly."""
+    workflow = _Workflow()
+    workflow.create_closed_review("Minimal review.")
+
+    markdown = ReviewJournalExportService(workflow.query).export_markdown()
+
+    assert markdown is not None
+    assert "- Rating: N/A" in markdown
+    assert "- Tags: None" in markdown
+    assert "- Process score: N/A" in markdown
+    assert "- Setup quality: N/A" in markdown
+    assert "- Execution quality: N/A" in markdown
+    assert "- Exit quality: N/A" in markdown
+    assert markdown.count("- None") == 3
+
+
+def test_review_journal_export_returns_none_for_empty_result() -> None:
+    """Empty exports are represented without producing Markdown."""
+    workflow = _Workflow()
+
+    assert ReviewJournalExportService(workflow.query).export_markdown() is None
+
+
 class _Workflow:
     def __init__(self) -> None:
         self.ideas = InMemoryTradeIdeaRepository()
@@ -194,6 +297,8 @@ class _Workflow:
         setup_quality: int | None = None,
         execution_quality: int | None = None,
         exit_quality: int | None = None,
+        lessons_learned: list[str] | None = None,
+        follow_up_actions: list[str] | None = None,
     ):
         idea = self.planning.create_trade_idea(
             instrument_id=uuid4(),
@@ -232,6 +337,8 @@ class _Workflow:
             summary=summary,
             what_went_well="Entry was clean.",
             what_went_poorly="Exit could be faster.",
+            lessons_learned=lessons_learned,
+            follow_up_actions=follow_up_actions,
             rating=rating,
             tags=tags,
             process_score=process_score,

@@ -31,6 +31,9 @@ from trading_system.services.market_context_service import (
 )
 from trading_system.services.position_query_service import PositionQueryService
 from trading_system.services.position_service import PositionService
+from trading_system.services.review_journal_export_service import (
+    ReviewJournalExportService,
+)
 from trading_system.services.review_query_service import ReviewQueryService
 from trading_system.services.review_service import ReviewService
 from trading_system.services.rule_service import RuleService
@@ -897,6 +900,52 @@ def show_trade_review(trade_review_id: str) -> None:
         ],
     )
     _echo_market_context_section(detail.market_context_snapshots)
+
+
+@app.command("export-review-journal")
+def export_review_journal(
+    output: Path = typer.Option(..., "--output"),
+    overwrite: bool = typer.Option(False, "--overwrite"),
+    rating: int | None = typer.Option(None, "--rating"),
+    purpose: str | None = typer.Option(None, "--purpose"),
+    direction: str | None = typer.Option(None, "--direction"),
+    tags: list[str] = typer.Option(
+        None,
+        "--tag",
+        help="Repeat to require multiple review tags.",
+    ),
+    process_score: int | None = typer.Option(None, "--process-score"),
+    setup_quality: int | None = typer.Option(None, "--setup-quality"),
+    execution_quality: int | None = typer.Option(None, "--execution-quality"),
+    exit_quality: int | None = typer.Option(None, "--exit-quality"),
+    sort: ListSortOrder = typer.Option("oldest", "--sort"),
+) -> None:
+    """Export matching trade reviews as a local Markdown journal."""
+    markdown = ReviewJournalExportService(_review_query_service()).export_markdown(
+        rating=rating,
+        purpose=purpose,
+        direction=direction,
+        tags=tags,
+        process_score=process_score,
+        setup_quality=setup_quality,
+        execution_quality=execution_quality,
+        exit_quality=exit_quality,
+        sort=sort,
+    )
+    if markdown is None:
+        typer.echo("No trade reviews found.")
+        return
+
+    output_path = output.expanduser()
+    if not output_path.parent.exists():
+        typer.echo("Output parent directory does not exist.", err=True)
+        raise typer.Exit(code=1)
+    if output_path.exists() and not overwrite:
+        typer.echo("Output file already exists. Use --overwrite to replace it.", err=True)
+        raise typer.Exit(code=1)
+
+    output_path.write_text(markdown, encoding="utf-8")
+    typer.echo(f"Exported trade review journal: {output_path}")
 
 
 @app.command("list-positions")

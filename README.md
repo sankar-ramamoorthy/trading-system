@@ -161,6 +161,8 @@ uv run trading-system show-trade-plan <trade-plan-id>
 uv run trading-system list-trade-reviews
 uv run trading-system list-trade-reviews --rating 4 --purpose swing --direction long --tag risk-management --process-score 5 --sort newest
 uv run trading-system show-trade-review <trade-review-id>
+uv run trading-system export-review-journal --output .\journal.md
+uv run trading-system export-review-journal --output .\missed-exits.md --tag missed-exit --sort newest
 uv run trading-system list-positions
 uv run trading-system list-positions --state closed --sort newest
 uv run trading-system list-positions --purpose swing --has-review
@@ -228,6 +230,18 @@ uv run trading-system list-trade-reviews --setup-quality 4 --execution-quality 3
 ```
 
 Scores are creation-time review metadata only. Existing reviews do not need scores.
+
+## Review Journal Export
+
+The third Milestone 5 slice adds a narrow Markdown journal export for completed reviewed trades. It reuses the same filters as `list-trade-reviews` and writes factual review data to a user-provided local file.
+
+```powershell
+uv run trading-system export-review-journal --output .\journal.md
+uv run trading-system export-review-journal --output .\missed-exits.md --tag missed-exit --sort newest
+uv run trading-system export-review-journal --output .\journal.md --overwrite
+```
+
+The export includes review identity, reviewed time, linked position and trade plan ids, purpose, direction, realized P&L, tags, quality scores, review notes, lessons, follow-up actions, and linked market-context metadata. It does not include full context payloads; use `show-context` for payload inspection. Existing output files are not replaced unless `--overwrite` is provided.
 
 ### Important Notes
 

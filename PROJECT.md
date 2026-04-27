@@ -6,7 +6,7 @@ Milestone 5 - Review, learning, and local operations
 
 ## Current Slice
 
-Implement review quality scores as the second narrow Milestone 5 slice.
+Markdown journal export is implemented as the third narrow Milestone 5 slice.
 
 ## Constraints
 
@@ -22,10 +22,11 @@ Implement review quality scores as the second narrow Milestone 5 slice.
 
 ## Next Steps
 
-- Add optional 1-5 process, setup, execution, and exit quality scores to `TradeReview`.
-- Surface quality scores in review list/detail CLI output.
-- Support exact `list-trade-reviews` filters for each quality score.
-- Keep reporting scoped to completed trades and explicit review records.
+- Keep `export-review-journal --output <path>` scoped to completed reviewed trades.
+- Reuse existing review filters, including tags and quality scores, for any export follow-on.
+- Keep Markdown output factual: review notes, outcome, scores, and linked context metadata.
+- Keep overwrite protection and no-file empty results behavior intact.
+- Keep future reporting scoped to completed trades and explicit review records.
 - Preserve the distinction between canonical trade records, read-only market context, and derived read models.
 - Use the context source port for any future provider adapters without coupling services to provider APIs.
 - Add an ADR before implementing yfinance or any other external provider.
