@@ -1,5 +1,6 @@
 """CLI tests for explicit write commands and upstream read commands."""
 
+import json
 from uuid import uuid4
 
 from typer.testing import CliRunner
@@ -506,6 +507,147 @@ def test_cancel_order_intent_rejects_missing_record(tmp_path) -> None:
 
     assert result.exit_code != 0
     assert "Order intent does not exist." in result.output
+
+
+def test_validate_store_command_reports_collection_counts(tmp_path) -> None:
+    """The validate-store command reports local JSON store health."""
+    store_path = tmp_path / "store.json"
+    store_path.write_text(
+        json.dumps(
+            {
+                "trade_ideas": {"one": {}},
+                "trade_reviews": {"two": {}, "three": {}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        ["validate-store"],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert result.exit_code == 0
+    assert f"store_path: {store_path}" in result.output
+    assert "collections: trade_ideas,trade_theses,trade_plans" in result.output
+    assert "total_records: 3" in result.output
+    assert "trade_ideas: 1" in result.output
+    assert "trade_reviews: 2" in result.output
+
+
+def test_validate_store_command_rejects_missing_store(tmp_path) -> None:
+    """The validate-store command requires an existing store file."""
+    store_path = tmp_path / "missing.json"
+
+    result = runner.invoke(
+        app,
+        ["validate-store"],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert result.exit_code != 0
+    assert "JSON persistence store does not exist" in result.output
+
+
+def test_backup_store_command_creates_timestamped_json_backup(tmp_path) -> None:
+    """The backup-store command creates an inspectable JSON backup file."""
+    store_path = tmp_path / "store.json"
+    backup_dir = tmp_path / "backups"
+    store_path.write_text('{"trade_ideas":{"one":{}}}', encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["backup-store", "--output-dir", str(backup_dir)],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert result.exit_code == 0
+    backups = list(backup_dir.glob("trading-system-store-*.json"))
+    assert len(backups) == 1
+    assert backups[0].read_text(encoding="utf-8") == store_path.read_text(
+        encoding="utf-8"
+    )
+    assert f"backup_path: {backups[0]}" in result.output
+    assert f"source_store_path: {store_path}" in result.output
+
+
+def test_backup_store_command_rejects_invalid_store(tmp_path) -> None:
+    """The backup-store command validates before writing a backup."""
+    store_path = tmp_path / "store.json"
+    backup_dir = tmp_path / "backups"
+    store_path.write_text("{not valid json", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["backup-store", "--output-dir", str(backup_dir)],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert result.exit_code != 0
+    assert "JSON persistence store is invalid" in result.output
+    assert not backup_dir.exists()
+
+
+def test_restore_store_command_requires_overwrite_for_existing_store(tmp_path) -> None:
+    """The restore-store command protects an existing configured store."""
+    backup_path = tmp_path / "backup.json"
+    store_path = tmp_path / "store.json"
+    backup_path.write_text('{"trade_ideas":{"backup":{}}}', encoding="utf-8")
+    store_path.write_text('{"trade_ideas":{"current":{}}}', encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["restore-store", str(backup_path)],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert result.exit_code != 0
+    assert "Use --overwrite to replace it." in result.output
+    assert json.loads(store_path.read_text(encoding="utf-8")) == {
+        "trade_ideas": {"current": {}}
+    }
+
+
+def test_restore_store_command_replaces_store_with_overwrite(tmp_path) -> None:
+    """The restore-store command restores a validated backup with overwrite."""
+    backup_path = tmp_path / "backup.json"
+    store_path = tmp_path / "store.json"
+    backup_path.write_text('{"trade_ideas":{"backup":{}}}', encoding="utf-8")
+    store_path.write_text('{"trade_ideas":{"current":{}}}', encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["restore-store", str(backup_path), "--overwrite"],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert result.exit_code == 0
+    assert f"restored_store_path: {store_path}" in result.output
+    assert f"backup_path: {backup_path}" in result.output
+    restored = json.loads(store_path.read_text(encoding="utf-8"))
+    assert restored["trade_ideas"] == {"backup": {}}
+    assert restored["trade_reviews"] == {}
+
+
+def test_restore_store_command_rejects_invalid_backup(tmp_path) -> None:
+    """The restore-store command validates backup JSON before replacement."""
+    backup_path = tmp_path / "backup.json"
+    store_path = tmp_path / "store.json"
+    backup_path.write_text("{not valid json", encoding="utf-8")
+    store_path.write_text('{"trade_ideas":{"current":{}}}', encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["restore-store", str(backup_path), "--overwrite"],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert result.exit_code != 0
+    assert "JSON persistence store is invalid" in result.output
+    assert json.loads(store_path.read_text(encoding="utf-8")) == {
+        "trade_ideas": {"current": {}}
+    }
 
 
 def _seed_approved_and_evaluated_plan(store_path) -> str:

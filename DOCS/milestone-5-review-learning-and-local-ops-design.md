@@ -101,6 +101,23 @@ The slice stays narrow:
 - exported data should preserve auditability and be suitable for local archiving
 - operational guidance should favor straightforward restore and portability workflows over infrastructure-heavy solutions
 
+## Fourth Implementation Slice
+
+The fourth Milestone 5 slice is local JSON operational support.
+
+This slice adds commands to validate, back up, and restore the configured local JSON store:
+
+- `validate-store`
+- `backup-store`
+- `restore-store <backup-path> --overwrite`
+
+The slice stays narrow:
+
+- backups are exact timestamped JSON copies
+- restore validates the backup before replacing the configured store
+- existing stores require explicit `--overwrite`
+- no scheduled backups, cloud sync, compression, encryption, migrations, Postgres backup support, or broader operational automation is introduced
+
 ## Acceptable Analytics Boundary
 
 Analytics in this milestone should stay narrow and journal-grade.

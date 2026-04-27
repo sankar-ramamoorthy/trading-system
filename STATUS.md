@@ -23,6 +23,7 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - Automatic position state tracking and closure
 - Read-side realized P&L for closed positions
 - Trade review creation, tagging, quality scoring, filtering, inspection, and Markdown journal export
+- Local JSON store validation, backup, and restore commands
 - Lifecycle event audit trail and position timeline output
 - CLI-based write and read workflows
 - Filtering and sorting for core read models
@@ -70,6 +71,10 @@ This slice adds optional 1-5 process, setup, execution, and exit quality scores 
 Markdown journal export is complete as the third narrow Milestone 5 implementation slice.
 
 This slice adds `export-review-journal --output <path>` for reviewed trades. It reuses review filters, writes one Markdown section per review, refuses to overwrite existing files without `--overwrite`, omits full market-context payloads, and reports `No trade reviews found.` without creating a file when filters match nothing. It does not add analytics, recommendations, generated coaching, CSV export, backup/restore, or review editing.
+
+Local JSON operations are complete as the fourth narrow Milestone 5 implementation slice.
+
+This slice adds `validate-store`, `backup-store`, and `restore-store` for the configured local JSON store. Backups are exact timestamped JSON copies, restore validates the backup before replacement, and existing stores require explicit `--overwrite`. It does not add scheduled backups, cloud sync, compression, encryption, migrations, Postgres backup support, or broader operational automation.
 
 ## Immediate Design Guardrails
 

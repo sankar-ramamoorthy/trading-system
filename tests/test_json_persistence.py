@@ -1,5 +1,6 @@
 """Tests for local JSON-backed durable persistence."""
 
+from datetime import datetime
 from decimal import Decimal
 import json
 from uuid import uuid4
@@ -15,8 +16,11 @@ from trading_system.domain.trading.order_intent import (
     OrderType,
 )
 from trading_system.infrastructure.json.repositories import (
+    backup_json_store,
     JsonPersistenceError,
+    restore_json_store,
     build_json_repositories,
+    validate_json_store,
 )
 from trading_system.rules_engine.implementations.risk_defined_rule import RiskDefinedRule
 from trading_system.services.fill_service import FillService
@@ -606,3 +610,100 @@ def test_trade_thesis_repository_list_all_survives_reload(tmp_path) -> None:
 
     assert reloaded.theses.get(thesis.id) == thesis
     assert reloaded.theses.list_all() == [thesis]
+
+
+def test_validate_json_store_reports_collection_counts(tmp_path) -> None:
+    """Store validation reports record counts without loading domain objects."""
+    store_path = tmp_path / "store.json"
+    store_path.write_text(
+        json.dumps(
+            {
+                "trade_ideas": {"one": {}},
+                "trade_reviews": {"two": {}, "three": {}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    validation = validate_json_store(store_path)
+
+    assert validation.store_path == store_path
+    assert validation.collection_counts["trade_ideas"] == 1
+    assert validation.collection_counts["trade_reviews"] == 2
+    assert validation.total_record_count == 3
+
+
+def test_validate_json_store_rejects_missing_store(tmp_path) -> None:
+    """Store validation requires an existing local JSON file."""
+    with pytest.raises(JsonPersistenceError, match="does not exist"):
+        validate_json_store(tmp_path / "missing.json")
+
+
+def test_backup_json_store_copies_valid_store_exactly(tmp_path) -> None:
+    """Backups are inspectable exact JSON file copies."""
+    store_path = tmp_path / "store.json"
+    store_path.write_text('{"trade_ideas":{"one":{}}}', encoding="utf-8")
+    output_dir = tmp_path / "backups"
+
+    backup_path = backup_json_store(
+        store_path,
+        output_dir,
+        timestamp=datetime(2026, 4, 27, 14, 30, 5),
+    )
+
+    assert backup_path == output_dir / "trading-system-store-20260427-143005.json"
+    assert backup_path.read_text(encoding="utf-8") == store_path.read_text(
+        encoding="utf-8"
+    )
+
+
+def test_backup_json_store_rejects_invalid_store(tmp_path) -> None:
+    """Backups are not created from invalid JSON stores."""
+    store_path = tmp_path / "store.json"
+    store_path.write_text("{not valid json", encoding="utf-8")
+    output_dir = tmp_path / "backups"
+
+    with pytest.raises(JsonPersistenceError, match="invalid"):
+        backup_json_store(store_path, output_dir)
+
+    assert not output_dir.exists()
+
+
+def test_restore_json_store_refuses_existing_store_without_overwrite(tmp_path) -> None:
+    """Restore requires explicit overwrite for an existing configured store."""
+    backup_path = tmp_path / "backup.json"
+    store_path = tmp_path / "store.json"
+    backup_path.write_text('{"trade_ideas":{"backup":{}}}', encoding="utf-8")
+    store_path.write_text('{"trade_ideas":{"current":{}}}', encoding="utf-8")
+
+    with pytest.raises(JsonPersistenceError, match="--overwrite"):
+        restore_json_store(backup_path, store_path, overwrite=False)
+
+    assert store_path.read_text(encoding="utf-8") == '{"trade_ideas":{"current":{}}}'
+
+
+def test_restore_json_store_replaces_store_when_overwrite_is_set(tmp_path) -> None:
+    """Restore atomically replaces the configured store from a valid backup."""
+    backup_path = tmp_path / "backup.json"
+    store_path = tmp_path / "store.json"
+    backup_path.write_text('{"trade_ideas":{"backup":{}}}', encoding="utf-8")
+    store_path.write_text('{"trade_ideas":{"current":{}}}', encoding="utf-8")
+
+    restore_json_store(backup_path, store_path, overwrite=True)
+
+    restored = json.loads(store_path.read_text(encoding="utf-8"))
+    assert restored["trade_ideas"] == {"backup": {}}
+    assert restored["trade_reviews"] == {}
+
+
+def test_restore_json_store_rejects_missing_backup(tmp_path) -> None:
+    """Restore validates that the backup file exists before replacement."""
+    store_path = tmp_path / "store.json"
+    store_path.write_text('{"trade_ideas":{"current":{}}}', encoding="utf-8")
+
+    with pytest.raises(JsonPersistenceError, match="does not exist"):
+        restore_json_store(tmp_path / "missing.json", store_path, overwrite=True)
+
+    assert json.loads(store_path.read_text(encoding="utf-8")) == {
+        "trade_ideas": {"current": {}}
+    }
