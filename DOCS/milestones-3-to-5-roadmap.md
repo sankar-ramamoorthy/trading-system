@@ -13,7 +13,8 @@ tags: [roadmap, milestone-3, milestone-4, milestone-5, trading-system]
 - Milestone 2 is complete.
 - Milestone 3 is complete.
 - Milestone 4 is complete.
-- Milestone 5 is the active milestone.
+- Milestone 5 is complete.
+- Milestone 6 has started with ADR-007 for the market data provider boundary.
 
 ## Accepted Sequence
 
@@ -103,7 +104,7 @@ Milestone 4 is complete as of 2026-04-26.
 
 The implementation uses explicit local JSON imports stored as immutable `MarketContextSnapshot` records. Snapshots can be linked to trade plans, positions, and trade reviews, listed with discovery filters, inspected directly, and copied to a new target without mutating the original snapshot.
 
-External market data providers remain deferred until an ADR records provider status, failure behavior, and non-canonical use.
+External market data provider implementation was deferred until an ADR recorded provider status, failure behavior, and non-canonical use. ADR-007 now records that boundary for Milestone 6.
 
 ## Milestone 5: Review, Learning, And Local Operations
 
@@ -132,3 +133,7 @@ Strengthen post-trade review, journal-grade reporting, export, and local operati
 - journal-grade reports or exports exist for local use
 - local operational workflows are clear enough for backup, restore, and practical maintenance
 - review and reporting features remain narrow, auditable, and aligned with the manual trading workflow
+
+## Milestone 6 Transition
+
+Milestone 6 begins after this roadmap with read-only market data provider integration. ADR-007 accepts optional prototype-grade `yfinance` as the first provider stance and daily OHLCV history as the first data shape. Provider output must remain advisory, non-canonical, and stored as `MarketContextSnapshot` records.

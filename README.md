@@ -73,6 +73,8 @@ See:
 - `DOCS/ADR/003-development-and-deployment-strategy.md`
 - `DOCS/ADR/004-canonical-domain-and-source-of-truth.md`
 - `DOCS/ADR/005-mvp-definition-and-boundaries.md`
+- `DOCS/ADR/006-deferred-learning-systems-boundary.md`
+- `DOCS/ADR/007-market-data-provider-boundary.md`
 - `DOCS/domain-model.md`
 - `DOCS/milestone-1-summary.md`
 - `DOCS/milestone-2-roadmap.md`
@@ -80,6 +82,7 @@ See:
 - `DOCS/milestone-4-market-context-design.md`
 - `DOCS/milestone-4-summary.md`
 - `DOCS/milestone-5-review-learning-and-local-ops-design.md`
+- `DOCS/milestone-6-market-data-provider-design.md`
 
 ---
 
@@ -208,7 +211,7 @@ uv run trading-system show-context <market-context-snapshot-id>
 
 Linked snapshots also appear as metadata-only `Market context` sections in `show-trade-plan`, `show-position`, and `show-trade-review`. Use `show-context` when you need to inspect the full stored payload. `copy-context` creates a new linked snapshot from an existing one; it does not mutate the original import.
 
-External providers such as yfinance are not implemented yet. They should be added later behind the context source port and documented with an ADR before use.
+ADR-007 accepts the Milestone 6 provider boundary. The first provider stance is optional prototype-grade `yfinance`, and the first data shape is daily OHLCV history stored as explicit `MarketContextSnapshot` records. Provider code is not implemented yet; external data remains read-only, advisory, and non-canonical.
 
 ## Review Tags
 
@@ -265,7 +268,7 @@ Backups are exact timestamped JSON copies of the configured store and default to
 - prices and fills are user-entered
 - data persists locally in JSON by default
 - no broker integration exists yet
-- market context exists only as explicit read-only local snapshots
+- market context exists as explicit read-only local snapshots; ADR-007 now permits a future prototype `yfinance` daily-OHLCV provider behind the snapshot boundary
 - the system is currently a discipline and journaling tool
 
 ---

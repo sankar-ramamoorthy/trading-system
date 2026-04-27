@@ -2,7 +2,7 @@
 
 ## Current Milestone
 
-Milestone 5 - Review, learning, and local operations
+Milestone 6 - Read-only market data provider integration
 
 ## Implementation State
 
@@ -10,9 +10,10 @@ Milestone 5 - Review, learning, and local operations
 - Milestone 2: complete (core workflow extensions)
 - Milestone 3: complete (manual workflow usability)
 - Milestone 4: complete (read-only market context)
-- Milestone 5: started
+- Milestone 5: complete (review, learning, and local operations)
+- Milestone 6: started (provider-boundary ADR accepted)
 
-The system is currently a functional, CLI-driven, manual trading workflow with local JSON persistence and lifecycle tracking.
+The system is currently a functional, CLI-driven, manual trading workflow with local JSON persistence, lifecycle tracking, review/export support, local JSON operations, and read-only context snapshots.
 
 ## Available Capabilities
 
@@ -33,12 +34,14 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - Market context metadata surfaced alongside trade plan, position, and trade review detail views
 - Broad `list-context` discovery filters for context type, source, observed range, and captured range
 - `copy-context` workflow for copying an existing snapshot to a trade plan, position, or trade review target without mutating the original
+- Accepted ADR boundary for a future prototype `yfinance` daily-OHLCV provider
 
 ## Active Constraints
 
 - No broker integration
 - No automated execution
 - No live market data streaming
+- No external market data provider code is implemented yet
 - No AI or ML decision-making
 - JSON persistence is the active local backend
 - Postgres remains deferred as the active backend
@@ -56,25 +59,27 @@ Milestone 4 is closed with the implemented local snapshot workflow:
 - Stored snapshots can be found by context type, source, date, instrument, and linked target
 - Existing snapshots can be copied to a target without mutating the original import
 - Context informs decisions but does not define trade meaning
-- External provider adapters such as yfinance remain deferred
+- External provider implementation was deferred until the now-accepted ADR-007 boundary
 
-## Active Slice (Milestone 5)
+## Completed Slice (Milestone 5)
 
 Review tags and filtering are complete as the first narrow Milestone 5 implementation slice.
 
-This slice adds creation-time tags to trade reviews, shows tags in review list/detail output, and supports `list-trade-reviews --tag` filters. It does not add review editing, reporting/export, a tag taxonomy, generated coaching, or broader analytics.
-
 Review quality scores are complete as the second narrow Milestone 5 implementation slice.
-
-This slice adds optional 1-5 process, setup, execution, and exit quality scores to trade reviews, shows them in review read output, and supports exact score filters. It does not add review editing, reporting/export, generated coaching, or broader analytics.
 
 Markdown journal export is complete as the third narrow Milestone 5 implementation slice.
 
-This slice adds `export-review-journal --output <path>` for reviewed trades. It reuses review filters, writes one Markdown section per review, refuses to overwrite existing files without `--overwrite`, omits full market-context payloads, and reports `No trade reviews found.` without creating a file when filters match nothing. It does not add analytics, recommendations, generated coaching, CSV export, backup/restore, or review editing.
-
 Local JSON operations are complete as the fourth narrow Milestone 5 implementation slice.
 
-This slice adds `validate-store`, `backup-store`, and `restore-store` for the configured local JSON store. Backups are exact timestamped JSON copies, restore validates the backup before replacement, and existing stores require explicit `--overwrite`. It does not add scheduled backups, cloud sync, compression, encryption, migrations, Postgres backup support, or broader operational automation.
+Milestone 5 is complete because reviews can now be tagged, scored, filtered, inspected, exported to factual Markdown journals, and supported by explicit local JSON validation, backup, and restore commands without expanding into generated coaching, broad analytics, cloud operations, or automation.
+
+## Active Slice (Milestone 6)
+
+ADR-007 is accepted as the first Milestone 6 slice.
+
+This ADR allows a future optional prototype-grade `yfinance` provider adapter for read-only daily OHLCV data. Provider output must be stored as explicit `MarketContextSnapshot` records before the rest of the application uses it. Provider data remains advisory and non-canonical.
+
+Provider implementation has not started in code yet.
 
 ## Immediate Design Guardrails
 
@@ -83,8 +88,9 @@ This slice adds `validate-store`, `backup-store`, and `restore-store` for the co
 - Do not stream or subscribe to live data
 - Keep all context interactions explicit and user-invoked
 - Preserve auditability of retrieved context
-- Add an ADR before introducing an external market data provider
-- Keep Milestone 5 reporting and export work narrow, local-first, and journal-grade
+- Keep provider response objects and schemas out of domain logic
+- Keep the first provider data shape limited to daily OHLCV history
+- Treat `yfinance` as prototype-grade, not production-grade market data infrastructure
 
 ## Architecture Reference (Current)
 
@@ -93,6 +99,7 @@ Authoritative documents for implementation:
 - `DOCS/systems-blueprint.md`
 - `DOCS/domain-model.md`
 - `DOCS/ADR/`
+- `DOCS/milestone-6-market-data-provider-design.md`
 
 The domain model remains the canonical source of truth for entities and relationships.
 

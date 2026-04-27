@@ -92,7 +92,7 @@ Milestone 4 does not implement:
 - AI or ML decision-making
 - broad research ingestion
 
-External providers require a future ADR before implementation.
+External providers required a future ADR before implementation. ADR-007 now accepts the Milestone 6 provider boundary for optional prototype-grade `yfinance` daily OHLCV snapshots.
 
 ## Validation
 
