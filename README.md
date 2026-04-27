@@ -206,12 +206,14 @@ uv run trading-system list-context
 uv run trading-system list-context --instrument-id <instrument-id>
 uv run trading-system list-context --target-type trade-plan --target-id <trade-plan-id>
 uv run trading-system list-context --context-type price_snapshot --source local-file --observed-from 2026-04-26T00:00:00+00:00 --observed-to 2026-04-26T23:59:59+00:00
+uv run trading-system fetch-market-data AAPL --start 2026-04-01 --end 2026-04-30
+uv run trading-system fetch-market-data AAPL --start 2026-04-01 --end 2026-04-30 --target-type trade-plan --target-id <trade-plan-id>
 uv run trading-system show-context <market-context-snapshot-id>
 ```
 
 Linked snapshots also appear as metadata-only `Market context` sections in `show-trade-plan`, `show-position`, and `show-trade-review`. Use `show-context` when you need to inspect the full stored payload. `copy-context` creates a new linked snapshot from an existing one; it does not mutate the original import.
 
-ADR-007 accepts the Milestone 6 provider boundary. The first provider stance is optional prototype-grade `yfinance`, and the first data shape is daily OHLCV history stored as explicit `MarketContextSnapshot` records. Provider code is not implemented yet; external data remains read-only, advisory, and non-canonical.
+ADR-007 accepts the Milestone 6 provider boundary. The first provider slice now implements `fetch-market-data` for optional prototype-grade `yfinance` daily OHLCV snapshots stored as explicit `MarketContextSnapshot` records. External data remains read-only, advisory, and non-canonical.
 
 ## Review Tags
 
@@ -268,7 +270,7 @@ Backups are exact timestamped JSON copies of the configured store and default to
 - prices and fills are user-entered
 - data persists locally in JSON by default
 - no broker integration exists yet
-- market context exists as explicit read-only local snapshots; ADR-007 now permits a future prototype `yfinance` daily-OHLCV provider behind the snapshot boundary
+- market context exists as explicit read-only local snapshots; `fetch-market-data` adds a prototype `yfinance` daily-OHLCV ingestion path behind the same boundary
 - the system is currently a discipline and journaling tool
 
 ---

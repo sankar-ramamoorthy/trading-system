@@ -2,11 +2,11 @@
 
 ## Current Milestone
 
-Milestone 5 - Review, learning, and local operations
+Milestone 6 - Read-only market data provider integration
 
 ## Current Slice
 
-Markdown journal export is implemented as the third narrow Milestone 5 slice.
+`fetch-market-data` is implemented as the first narrow Milestone 6 slice.
 
 ## Constraints
 
@@ -16,21 +16,18 @@ Markdown journal export is implemented as the third narrow Milestone 5 slice.
 - External context does not define canonical trade meaning.
 - No broker integration, execution triggers, streaming, or automated plan creation.
 - No AI or ML decision-making.
-- External provider adapters such as yfinance are deferred until an ADR records the provider boundary.
-- Milestone 5 work must stay journal-grade, local-first, explicit, and auditable.
-- Avoid broad portfolio analytics, optimization systems, cloud operations, or generated coaching.
+- External provider adapters such as yfinance must stay behind the accepted ADR-007 boundary.
+- Milestone 6 work must stay read-only, local-first, explicit, and auditable.
+- Avoid broad portfolio analytics, optimization systems, cloud operations, generated coaching, or provider-driven trade meaning.
 
 ## Next Steps
 
-- Keep `export-review-journal --output <path>` scoped to completed reviewed trades.
-- Reuse existing review filters, including tags and quality scores, for any export follow-on.
-- Keep Markdown output factual: review notes, outcome, scores, and linked context metadata.
-- Keep overwrite protection and no-file empty results behavior intact.
-- Keep future reporting scoped to completed trades and explicit review records.
+- Keep `fetch-market-data` scoped to read-only daily OHLCV snapshots.
 - Preserve the distinction between canonical trade records, read-only market context, and derived read models.
-- Use the context source port for any future provider adapters without coupling services to provider APIs.
-- Add an ADR before implementing yfinance or any other external provider.
-- Keep context output visibly separate from `TradeIdea`, `TradeThesis`, `TradePlan`, `Position`, `Fill`, and `TradeReview` meaning.
+- Keep provider response objects and schemas out of domain logic.
+- Keep market context output visibly separate from `TradeIdea`, `TradeThesis`, `TradePlan`, `Position`, `Fill`, and `TradeReview` meaning.
+- Extend coverage only where it protects the provider boundary or linked snapshot handling.
+- Keep review export and local JSON operations factual and explicit.
 
 ## Design Context
 
