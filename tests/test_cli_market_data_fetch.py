@@ -100,6 +100,79 @@ def test_fetch_market_data_to_target_and_show_snapshot(tmp_path, monkeypatch) ->
     assert snapshot_id in listed.output
 
 
+def test_fetch_market_data_accepts_explicit_yfinance_provider(tmp_path, monkeypatch) -> None:
+    """The CLI can select yfinance explicitly without changing snapshot shape."""
+    store_path = tmp_path / "store.json"
+    instrument_id = uuid4()
+    frame = _Frame(
+        columns=["Open", "High", "Low", "Close", "Adj Close", "Volume"],
+        rows=[
+            (
+                datetime(2026, 4, 1, 0, 0),
+                {
+                    "Open": 100.0,
+                    "High": 105.0,
+                    "Low": 99.5,
+                    "Close": 104.0,
+                    "Adj Close": 103.5,
+                    "Volume": 1000,
+                },
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        "trading_system.infrastructure.yfinance.market_data_source.import_module",
+        lambda name: SimpleNamespace(download=lambda *args, **kwargs: frame),
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "fetch-market-data",
+            "aapl",
+            "--provider",
+            "yfinance",
+            "--start",
+            "2026-04-01",
+            "--end",
+            "2026-04-03",
+            "--instrument-id",
+            str(instrument_id),
+        ],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert result.exit_code == 0
+    assert "context_type: daily_ohlcv" in result.output
+    assert "source: yfinance" in result.output
+    assert "instrument_id: " + str(instrument_id) in result.output
+
+
+def test_fetch_market_data_rejects_unsupported_provider(tmp_path) -> None:
+    """Unsupported provider names fail before a snapshot is created."""
+    store_path = tmp_path / "store.json"
+
+    result = runner.invoke(
+        app,
+        [
+            "fetch-market-data",
+            "AAPL",
+            "--provider",
+            "massive",
+            "--start",
+            "2026-04-01",
+            "--end",
+            "2026-04-03",
+            "--instrument-id",
+            str(uuid4()),
+        ],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert result.exit_code != 0
+    assert "Market data provider is not supported." in result.output
+
+
 def test_fetch_market_data_requires_instrument_or_target(tmp_path, monkeypatch) -> None:
     """The CLI keeps existing instrument/target linking rules."""
     store_path = tmp_path / "store.json"

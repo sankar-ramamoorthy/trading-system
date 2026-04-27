@@ -207,13 +207,14 @@ uv run trading-system list-context --instrument-id <instrument-id>
 uv run trading-system list-context --target-type trade-plan --target-id <trade-plan-id>
 uv run trading-system list-context --context-type price_snapshot --source local-file --observed-from 2026-04-26T00:00:00+00:00 --observed-to 2026-04-26T23:59:59+00:00
 uv run trading-system fetch-market-data AAPL --start 2026-04-01 --end 2026-04-30
+uv run trading-system fetch-market-data AAPL --provider yfinance --start 2026-04-01 --end 2026-04-30
 uv run trading-system fetch-market-data AAPL --start 2026-04-01 --end 2026-04-30 --target-type trade-plan --target-id <trade-plan-id>
 uv run trading-system show-context <market-context-snapshot-id>
 ```
 
 Linked snapshots also appear as metadata-only `Market context` sections in `show-trade-plan`, `show-position`, and `show-trade-review`. Use `show-context` when you need to inspect the full stored payload. `copy-context` creates a new linked snapshot from an existing one; it does not mutate the original import.
 
-ADR-007 accepts the Milestone 6 provider boundary. The first provider slice now implements `fetch-market-data` for optional prototype-grade `yfinance` daily OHLCV snapshots stored as explicit `MarketContextSnapshot` records. External data remains read-only, advisory, and non-canonical.
+ADR-007 accepts the Milestone 6 provider boundary. The first provider slice now implements `fetch-market-data` for optional prototype-grade `yfinance` daily OHLCV snapshots stored as explicit `MarketContextSnapshot` records. `yfinance` is currently the only implemented provider; `--provider yfinance` is accepted explicitly and remains the default. External data remains read-only, advisory, and non-canonical.
 
 ## Review Tags
 

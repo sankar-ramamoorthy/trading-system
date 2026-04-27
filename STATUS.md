@@ -11,7 +11,7 @@ Milestone 6 - Read-only market data provider integration
 - Milestone 3: complete (manual workflow usability)
 - Milestone 4: complete (read-only market context)
 - Milestone 5: complete (review, learning, and local operations)
-- Milestone 6: started (daily OHLCV slice implemented)
+- Milestone 6: in progress (6A and 6B Issue 1 complete)
 
 The system is currently a functional, CLI-driven, manual trading workflow with local JSON persistence, lifecycle tracking, review/export support, local JSON operations, and read-only context snapshots.
 
@@ -41,7 +41,6 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - No broker integration
 - No automated execution
 - No live market data streaming
-- No external market data provider code is implemented yet
 - No AI or ML decision-making
 - JSON persistence is the active local backend
 - Postgres remains deferred as the active backend
@@ -73,13 +72,48 @@ Local JSON operations are complete as the fourth narrow Milestone 5 implementati
 
 Milestone 5 is complete because reviews can now be tagged, scored, filtered, inspected, exported to factual Markdown journals, and supported by explicit local JSON validation, backup, and restore commands without expanding into generated coaching, broad analytics, cloud operations, or automation.
 
-## Active Slice (Milestone 6)
+## Completed Slice (Milestone 6A)
 
-ADR-007 is accepted as the first Milestone 6 slice.
+ADR-007 accepts the Milestone 6 market data provider boundary.
 
-The first Milestone 6 slice now implements `fetch-market-data` for optional prototype-grade `yfinance` daily OHLCV snapshots. Provider output is stored as explicit `MarketContextSnapshot` records before the rest of the application uses it. Provider data remains advisory and non-canonical.
+Milestone 6A is complete. The first provider slice implements `fetch-market-data` for optional prototype-grade `yfinance` daily OHLCV snapshots. Provider output is stored as explicit `MarketContextSnapshot` records before the rest of the application uses it. Provider data remains advisory and non-canonical.
 
-Provider implementation is underway in code with `fetch-market-data`.
+Validation recorded on 2026-04-27:
+
+- 6 focused yfinance market-data tests passed
+- 162 full-suite tests passed
+
+Closeout is recorded in `DOCS/milestone-6a-yfinance-market-data-closeout.md`.
+
+## Completed Slice (Milestone 6B Issue 1)
+
+Milestone 6B Issue 1 is complete. The `fetch-market-data` command now resolves provider-backed market data through an explicit provider registry instead of directly constructing yfinance from the CLI.
+
+The CLI supports:
+
+```powershell
+uv run trading-system fetch-market-data AAPL --provider yfinance --start 2026-04-01 --end 2026-04-30
+```
+
+Existing calls without `--provider` still default to yfinance. Unsupported providers fail clearly. yfinance remains the only implemented provider.
+
+Focused validation recorded on 2026-04-27:
+
+- 10 focused provider-boundary tests passed
+- 166 full-suite tests passed
+
+Closeout is recorded in `DOCS/milestone-6b-provider-boundary-hardening-closeout.md`.
+
+## Active Slice (Milestone 6C)
+
+Milestone 6 remains open after 6B.
+
+Next work:
+
+- Milestone 6C: plan access to Massive.com, formerly Polygon.io, as the next provider candidate
+- Milestone 6D: close Milestone 6 once the provider boundary and next-provider direction are documented or implemented narrowly
+
+ADR-008 API-first web product work should begin after Milestone 6 is closed or explicitly paused.
 
 ## Immediate Design Guardrails
 

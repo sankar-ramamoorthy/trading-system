@@ -72,7 +72,7 @@ Non-goals:
 
 ### Milestone 6: Read-Only Market Data Provider Integration
 
-Status: current focus.
+Status: current focus. Milestone 6A and 6B Issue 1 are complete; 6C remains.
 
 Milestone 6 introduces the first external market data provider behind the accepted ADR-007 boundary. The first implementation slice is the `fetch-market-data` command for prototype-grade `yfinance` daily OHLCV snapshots.
 
@@ -82,12 +82,22 @@ Allowed direction:
 - daily OHLCV history as the first provider data shape
 - explicit user-invoked fetches stored as `MarketContextSnapshot` records
 - advisory, non-canonical market data for planning and review
+- explicit provider selection with yfinance as the only implemented provider
 
-First implementation slice:
+Completed first implementation slice:
 
 - `fetch-market-data` for user-invoked daily OHLCV snapshots
 - explicit snapshot storage as `MarketContextSnapshot` records
 - optional linking to trade-plan, position, or trade-review targets
+- provider registry boundary and `--provider yfinance`
+
+Current sequencing:
+
+- Milestone 6A: prototype-grade `yfinance` daily OHLCV snapshot fetch is complete.
+- Milestone 6B Issue 1: provider-boundary hardening is complete.
+- Milestone 6C: plan access to Massive.com, formerly Polygon.io, as the next market data provider candidate.
+- Milestone 6D: close Milestone 6 once the provider boundary and next-provider direction are documented or implemented narrowly.
+- After Milestone 6 closeout, begin ADR-008 API-first web product work.
 
 Non-goals:
 

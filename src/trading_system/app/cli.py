@@ -25,8 +25,8 @@ from trading_system.infrastructure.json.repositories import (
 from trading_system.infrastructure.json.market_context_source import (
     JsonMarketContextImportSource,
 )
-from trading_system.infrastructure.yfinance.market_data_source import (
-    YFinanceDailyOHLCVImportSource,
+from trading_system.infrastructure.market_data_providers import (
+    MarketDataProviderRegistry,
 )
 from trading_system.services.cancel_order_intent_service import CancelOrderIntentService
 from trading_system.rules_engine.implementations.risk_defined_rule import RiskDefinedRule
@@ -1189,28 +1189,24 @@ def import_context(
 @app.command("fetch-market-data")
 def fetch_market_data(
     symbol: str = typer.Argument(...),
+    provider: str = typer.Option("yfinance", "--provider"),
     start: str = typer.Option(..., "--start"),
     end: str = typer.Option(..., "--end"),
     instrument_id: str | None = typer.Option(None, "--instrument-id"),
     target_type: ContextTargetOption | None = typer.Option(None, "--target-type"),
     target_id: str | None = typer.Option(None, "--target-id"),
 ) -> None:
-    """Fetch one read-only daily OHLCV snapshot from yfinance."""
+    """Fetch one read-only daily OHLCV snapshot from a provider."""
     repositories = _repositories()
     start_date = _parse_iso_date(start)
     end_date = _parse_iso_date(end)
-    source = YFinanceDailyOHLCVImportSource(symbol, start_date, end_date)
     snapshot = _run_service(
-        lambda: MarketContextImportService(
-            snapshot_repository=repositories.market_context_snapshots,
-            plan_repository=repositories.plans,
-            position_repository=repositories.positions,
-            review_repository=repositories.reviews,
-            idea_repository=repositories.ideas,
-        ).import_context(
-            source,
-            source="yfinance",
-            source_ref=source.source_ref,
+        lambda: _fetch_market_data_snapshot(
+            repositories=repositories,
+            provider=provider,
+            symbol=symbol,
+            start=start_date,
+            end=end_date,
             instrument_id=None if instrument_id is None else _parse_uuid(instrument_id),
             target_type=None if target_type is None else _context_target_type(target_type),
             target_id=None if target_id is None else _parse_uuid(target_id),
@@ -1394,6 +1390,40 @@ def _rule_service(repositories: JsonRepositorySet) -> RuleService:
         evaluation_repository=repositories.evaluations,
         violation_repository=repositories.violations,
         rules=[(rule, RiskDefinedRule(rule))],
+    )
+
+
+def _fetch_market_data_snapshot(
+    *,
+    repositories: JsonRepositorySet,
+    provider: str,
+    symbol: str,
+    start: date,
+    end: date,
+    instrument_id: UUID | None,
+    target_type: str | None,
+    target_id: UUID | None,
+) -> MarketContextSnapshot:
+    """Fetch provider-backed market data and store it as context."""
+    selection = MarketDataProviderRegistry().create_daily_ohlcv_source(
+        provider=provider,
+        symbol=symbol,
+        start=start,
+        end=end,
+    )
+    return MarketContextImportService(
+        snapshot_repository=repositories.market_context_snapshots,
+        plan_repository=repositories.plans,
+        position_repository=repositories.positions,
+        review_repository=repositories.reviews,
+        idea_repository=repositories.ideas,
+    ).import_context(
+        selection.source_adapter,
+        source=selection.source,
+        source_ref=selection.source_ref,
+        instrument_id=instrument_id,
+        target_type=target_type,
+        target_id=target_id,
     )
 
 
