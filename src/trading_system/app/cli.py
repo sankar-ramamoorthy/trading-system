@@ -15,8 +15,12 @@ from trading_system.domain.trading.market_context import MarketContextSnapshot
 from trading_system.domain.trading.order_intent import OrderIntent, OrderSide, OrderType
 from trading_system.domain.trading.review import TradeReview
 from trading_system.infrastructure.json.repositories import (
+    backup_json_store,
     JsonRepositorySet,
+    JsonPersistenceError,
+    restore_json_store,
     build_json_repositories,
+    validate_json_store,
 )
 from trading_system.infrastructure.json.market_context_source import (
     JsonMarketContextImportSource,
@@ -948,6 +952,49 @@ def export_review_journal(
     typer.echo(f"Exported trade review journal: {output_path}")
 
 
+@app.command("validate-store")
+def validate_store() -> None:
+    """Validate the configured local JSON store."""
+    validation = _run_service(lambda: validate_json_store(_json_store_path()))
+    typer.echo(f"store_path: {validation.store_path}")
+    typer.echo(f"collections: {','.join(validation.collection_counts)}")
+    typer.echo(f"total_records: {validation.total_record_count}")
+    for collection, count in validation.collection_counts.items():
+        typer.echo(f"{collection}: {count}")
+
+
+@app.command("backup-store")
+def backup_store(
+    output_dir: Path = typer.Option(
+        Path(".trading-system") / "backups",
+        "--output-dir",
+    ),
+) -> None:
+    """Create a timestamped local JSON backup of the configured store."""
+    store_path = _json_store_path()
+    backup_path = _run_service(lambda: backup_json_store(store_path, output_dir))
+    typer.echo(f"backup_path: {backup_path}")
+    typer.echo(f"source_store_path: {store_path}")
+
+
+@app.command("restore-store")
+def restore_store(
+    backup_path: Path = typer.Argument(...),
+    overwrite: bool = typer.Option(False, "--overwrite"),
+) -> None:
+    """Restore the configured local JSON store from a validated backup file."""
+    store_path = _json_store_path()
+    _run_service(
+        lambda: restore_json_store(
+            backup_path,
+            store_path,
+            overwrite=overwrite,
+        )
+    )
+    typer.echo(f"restored_store_path: {store_path}")
+    typer.echo(f"backup_path: {backup_path}")
+
+
 @app.command("list-positions")
 def list_positions(
     state: str | None = typer.Option(
@@ -1427,7 +1474,7 @@ def _run_service(func):
     """Run a service call and translate domain errors into CLI output."""
     try:
         return func()
-    except ValueError as exc:
+    except (ValueError, JsonPersistenceError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
 

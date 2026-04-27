@@ -163,6 +163,9 @@ uv run trading-system list-trade-reviews --rating 4 --purpose swing --direction 
 uv run trading-system show-trade-review <trade-review-id>
 uv run trading-system export-review-journal --output .\journal.md
 uv run trading-system export-review-journal --output .\missed-exits.md --tag missed-exit --sort newest
+uv run trading-system validate-store
+uv run trading-system backup-store --output-dir .\.trading-system\backups
+uv run trading-system restore-store .\.trading-system\backups\<backup-file>.json --overwrite
 uv run trading-system list-positions
 uv run trading-system list-positions --state closed --sort newest
 uv run trading-system list-positions --purpose swing --has-review
@@ -242,6 +245,19 @@ uv run trading-system export-review-journal --output .\journal.md --overwrite
 ```
 
 The export includes review identity, reviewed time, linked position and trade plan ids, purpose, direction, realized P&L, tags, quality scores, review notes, lessons, follow-up actions, and linked market-context metadata. It does not include full context payloads; use `show-context` for payload inspection. Existing output files are not replaced unless `--overwrite` is provided.
+
+## Local JSON Operations
+
+The active local backend is a single JSON store. Use the operational commands to validate, back up, and restore that file explicitly.
+
+```powershell
+uv run trading-system validate-store
+uv run trading-system backup-store
+uv run trading-system backup-store --output-dir .\.trading-system\backups
+uv run trading-system restore-store .\.trading-system\backups\<backup-file>.json --overwrite
+```
+
+Backups are exact timestamped JSON copies of the configured store and default to `.trading-system/backups`. Restore validates the backup before replacing the configured store and requires `--overwrite` when the store already exists.
 
 ### Important Notes
 

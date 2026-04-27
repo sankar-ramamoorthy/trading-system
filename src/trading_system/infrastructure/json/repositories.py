@@ -6,6 +6,7 @@ from decimal import Decimal
 import json
 from json import JSONDecodeError
 from pathlib import Path
+import shutil
 from tempfile import NamedTemporaryFile
 from typing import Any
 from uuid import UUID
@@ -45,6 +46,19 @@ COLLECTIONS = (
 
 class JsonPersistenceError(RuntimeError):
     """Raised when the local JSON store cannot be read safely."""
+
+
+@dataclass(frozen=True)
+class JsonStoreValidation:
+    """Summary of a validated local JSON store."""
+
+    store_path: Path
+    collection_counts: dict[str, int]
+
+    @property
+    def total_record_count(self) -> int:
+        """Return the total number of stored records across all collections."""
+        return sum(self.collection_counts.values())
 
 
 class JsonStore:
@@ -105,6 +119,60 @@ class JsonStore:
     def get(self, collection: str, item_id: UUID) -> dict[str, Any] | None:
         """Return a raw record by UUID."""
         return self.read()[collection].get(str(item_id))
+
+
+def validate_json_store(path: Path | str) -> JsonStoreValidation:
+    """Validate an existing JSON store and return collection record counts."""
+    store_path = Path(path)
+    if not store_path.exists():
+        raise JsonPersistenceError(f"JSON persistence store does not exist: {store_path}")
+
+    data = JsonStore(store_path).read()
+    return JsonStoreValidation(
+        store_path=store_path,
+        collection_counts={
+            collection: len(data[collection]) for collection in COLLECTIONS
+        },
+    )
+
+
+def backup_json_store(
+    store_path: Path | str,
+    output_dir: Path | str,
+    *,
+    timestamp: datetime | None = None,
+) -> Path:
+    """Create an exact timestamped JSON backup of an existing valid store."""
+    source_path = Path(store_path)
+    validate_json_store(source_path)
+
+    backup_dir = Path(output_dir)
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    backup_timestamp = timestamp or datetime.now().astimezone()
+    backup_path = backup_dir / (
+        "trading-system-store-"
+        f"{backup_timestamp.strftime('%Y%m%d-%H%M%S')}.json"
+    )
+    shutil.copyfile(source_path, backup_path)
+    return backup_path
+
+
+def restore_json_store(
+    backup_path: Path | str,
+    store_path: Path | str,
+    *,
+    overwrite: bool,
+) -> None:
+    """Restore a validated backup into the configured JSON store path."""
+    source_path = Path(backup_path)
+    target_path = Path(store_path)
+    validate_json_store(source_path)
+    data = JsonStore(source_path).read()
+    if target_path.exists() and not overwrite:
+        raise JsonPersistenceError(
+            "JSON persistence store already exists. Use --overwrite to replace it."
+        )
+    JsonStore(target_path).write(data)
 
 
 class JsonTradeIdeaRepository:
