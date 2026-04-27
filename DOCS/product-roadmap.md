@@ -20,7 +20,7 @@ The current system remains a local-first, human-in-the-loop trading workflow. It
 
 ## Near-Term Roadmap
 
-The accepted near-term sequence is still Milestones 3 through 5.
+The accepted near-term sequence has advanced through Milestone 6.
 
 ### Milestone 3: Manual Workflow Usability
 
@@ -30,7 +30,7 @@ Milestone 3 made the CLI workflow practical for repeated manual use while preser
 
 ### Milestone 4: Read-Only Market Context
 
-Status: current focus.
+Status: complete.
 
 Milestone 4 adds read-only market and context support for planning and review.
 
@@ -51,7 +51,7 @@ Non-goals:
 
 ### Milestone 5: Review, Learning, And Local Operations
 
-Status: next accepted milestone.
+Status: complete.
 
 Milestone 5 deepens post-trade review and local operational robustness.
 
@@ -70,6 +70,27 @@ Non-goals:
 - reinforcement learning
 - cloud-first operations
 
+### Milestone 6: Read-Only Market Data Provider Integration
+
+Status: current focus.
+
+Milestone 6 introduces the first external market data provider behind the accepted ADR-007 boundary.
+
+Allowed direction:
+
+- optional prototype-grade `yfinance` provider adapter
+- daily OHLCV history as the first provider data shape
+- explicit user-invoked fetches stored as `MarketContextSnapshot` records
+- advisory, non-canonical market data for planning and review
+
+Non-goals:
+
+- live streaming market data
+- execution-grade quotes
+- broker integration
+- execution triggers
+- provider-driven recommendations
+- automatic trade, thesis, review, rule, or lifecycle mutation
 ## Long-Term Product Direction
 
 The longer-term product direction is a training, simulation, review, and decision-support system that helps the trader improve before increasing capital risk.
@@ -172,5 +193,7 @@ The current repository should first generate trustworthy ground truth. Learning 
 - [Milestones 3 To 5 Roadmap](milestones-3-to-5-roadmap.md)
 - [Milestone 4 Market Context Design](milestone-4-market-context-design.md)
 - [Milestone 5 Review Learning And Local Operations Design](milestone-5-review-learning-and-local-ops-design.md)
+- [Milestone 6 Market Data Provider Design](milestone-6-market-data-provider-design.md)
 - [ADR-005: MVP Definition and Boundaries](ADR/005-mvp-definition-and-boundaries.md)
 - [ADR-006: Deferred Learning Systems Boundary](ADR/006-deferred-learning-systems-boundary.md)
+- [ADR-007: Market Data Provider Boundary](ADR/007-market-data-provider-boundary.md)

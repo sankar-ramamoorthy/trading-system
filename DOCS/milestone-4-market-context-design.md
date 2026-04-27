@@ -59,7 +59,7 @@ This keeps the workflow local-first and auditable while introducing the durable 
 - imported files become stored `MarketContextSnapshot` records
 - each snapshot is linked to an instrument and may optionally link to a trade plan, position, or trade review target
 - the imported payload remains flexible JSON
-- external providers such as yfinance are deferred until a small ADR records provider status, failure behavior, and non-canonical use
+- external providers were deferred until a small ADR recorded provider status, failure behavior, and non-canonical use; ADR-007 now records that boundary for Milestone 6
 
 Follow-up slices now add practical discovery and reuse:
 
@@ -94,4 +94,4 @@ This is sufficient for the Milestone 4 completion criteria in `DOCS/milestones-3
 
 ## Likely Future ADR Trigger
 
-An ADR should be introduced later if Milestone 4 requires a durable architectural rule for context-provider interfaces, snapshot retention strategy, or another boundary that materially affects long-term architecture.
+ADR-007 now records the durable market data provider boundary for Milestone 6. Further ADRs should be introduced if provider scope expands into live feeds, scheduled refresh, paid vendor selection, options chains, or another boundary that materially affects long-term architecture.
