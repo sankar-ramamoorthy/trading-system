@@ -78,6 +78,7 @@ See:
 - `DOCS/milestone-2-roadmap.md`
 - `DOCS/milestones-3-to-5-roadmap.md`
 - `DOCS/milestone-4-market-context-design.md`
+- `DOCS/milestone-4-summary.md`
 - `DOCS/milestone-5-review-learning-and-local-ops-design.md`
 
 ---
@@ -143,7 +144,7 @@ uv run trading-system cancel-order-intent <order-intent-id>
 uv run trading-system open-position <trade-plan-id>
 uv run trading-system record-fill --position-id <position-id> --side buy --quantity 100 --price 25.50 --order-intent-id <order-intent-id>
 uv run trading-system record-fill --position-id <position-id> --side sell --quantity 100 --price 27.00
-uv run trading-system create-trade-review --position-id <position-id> --summary "Followed the plan." --what-went-well "Entry was clean." --what-went-poorly "Exit could have been faster."
+uv run trading-system create-trade-review --position-id <position-id> --summary "Followed the plan." --what-went-well "Entry was clean." --what-went-poorly "Exit could have been faster." --tag risk-management --tag missed-exit --process-score 5 --setup-quality 4 --execution-quality 3 --exit-quality 2
 ```
 
 ### Read And Inspect Stored Data
@@ -158,8 +159,10 @@ uv run trading-system list-trade-plans
 uv run trading-system list-trade-plans --approval-state approved --sort newest
 uv run trading-system show-trade-plan <trade-plan-id>
 uv run trading-system list-trade-reviews
-uv run trading-system list-trade-reviews --rating 4 --purpose swing --direction long --sort newest
+uv run trading-system list-trade-reviews --rating 4 --purpose swing --direction long --tag risk-management --process-score 5 --sort newest
 uv run trading-system show-trade-review <trade-review-id>
+uv run trading-system export-review-journal --output .\journal.md
+uv run trading-system export-review-journal --output .\missed-exits.md --tag missed-exit --sort newest
 uv run trading-system list-positions
 uv run trading-system list-positions --state closed --sort newest
 uv run trading-system list-positions --purpose swing --has-review
@@ -169,7 +172,7 @@ uv run trading-system show-position-timeline <position-id>
 
 ### Read-Only Market Context
 
-Milestone 4 begins with explicit local JSON file import for market/context snapshots. Context is advisory support for planning and review; it does not change trade plans, positions, reviews, rules, fills, or lifecycle state.
+Milestone 4 delivered explicit local JSON file import for market/context snapshots. Context is advisory support for planning and review; it does not change trade plans, positions, reviews, rules, fills, or lifecycle state.
 
 Example context file:
 
@@ -203,6 +206,42 @@ uv run trading-system show-context <market-context-snapshot-id>
 Linked snapshots also appear as metadata-only `Market context` sections in `show-trade-plan`, `show-position`, and `show-trade-review`. Use `show-context` when you need to inspect the full stored payload. `copy-context` creates a new linked snapshot from an existing one; it does not mutate the original import.
 
 External providers such as yfinance are not implemented yet. They should be added later behind the context source port and documented with an ADR before use.
+
+## Review Tags
+
+Milestone 5 starts with creation-time review tags for local learning loops. Tags are simple lowercase slugs stored on `TradeReview`, shown in review list/detail output, and filterable through repeated `--tag` options.
+
+```powershell
+uv run trading-system create-trade-review --position-id <position-id> --summary "Followed the plan." --what-went-well "Entry was clean." --what-went-poorly "Exit was late." --tag missed-exit --tag risk-management
+uv run trading-system list-trade-reviews --tag missed-exit
+uv run trading-system list-trade-reviews --tag missed-exit --tag risk-management
+```
+
+Tags do not introduce review editing, a central taxonomy, coaching, or analytics.
+
+## Review Quality Scores
+
+The second Milestone 5 slice adds optional 1-5 quality scores to make reviews easier to compare later without introducing reports or generated coaching.
+
+```powershell
+uv run trading-system create-trade-review --position-id <position-id> --summary "Followed the plan." --what-went-well "Entry was clean." --what-went-poorly "Exit was late." --process-score 5 --setup-quality 4 --execution-quality 3 --exit-quality 2
+uv run trading-system list-trade-reviews --process-score 5
+uv run trading-system list-trade-reviews --setup-quality 4 --execution-quality 3
+```
+
+Scores are creation-time review metadata only. Existing reviews do not need scores.
+
+## Review Journal Export
+
+The third Milestone 5 slice adds a narrow Markdown journal export for completed reviewed trades. It reuses the same filters as `list-trade-reviews` and writes factual review data to a user-provided local file.
+
+```powershell
+uv run trading-system export-review-journal --output .\journal.md
+uv run trading-system export-review-journal --output .\missed-exits.md --tag missed-exit --sort newest
+uv run trading-system export-review-journal --output .\journal.md --overwrite
+```
+
+The export includes review identity, reviewed time, linked position and trade plan ids, purpose, direction, realized P&L, tags, quality scores, review notes, lessons, follow-up actions, and linked market-context metadata. It does not include full context payloads; use `show-context` for payload inspection. Existing output files are not replaced unless `--overwrite` is provided.
 
 ### Important Notes
 

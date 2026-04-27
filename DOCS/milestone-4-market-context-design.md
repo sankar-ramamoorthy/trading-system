@@ -1,6 +1,6 @@
 ---
 title: Milestone 4 Market Context Design
-status: accepted-for-roadmap
+status: complete
 date: 2026-04-24
 tags: [milestone-4, market-context, design, trading-system]
 ---
@@ -66,6 +66,22 @@ Follow-up slices now add practical discovery and reuse:
 - `list-context` supports broad discovery with optional filters for instrument, target, context type, source, observed range, and captured range
 - linked snapshots appear as metadata-only context sections in trade plan, position, and trade review detail views
 - `copy-context` creates a new immutable linked snapshot from an existing one without mutating the original import
+
+## Closeout
+
+Milestone 4 closed on 2026-04-26 with the local snapshot workflow implemented and validated.
+
+The completed scope includes:
+
+- explicit local JSON import into stored `MarketContextSnapshot` records
+- optional links from snapshots to `TradePlan`, `Position`, and `TradeReview` targets
+- metadata-only context sections in trade plan, position, and trade review detail views
+- full payload inspection through `show-context`
+- broad `list-context` discovery filters
+- `copy-context` reuse that creates a new immutable linked snapshot
+- documentation that keeps context read-only, advisory, auditable, and non-canonical
+
+This is sufficient for the Milestone 4 completion criteria in `DOCS/milestones-3-to-5-roadmap.md`.
 
 ## Non-Goals
 

@@ -24,6 +24,76 @@ Milestone 5 may include:
 
 This milestone should help the trader answer questions such as what was learned, which patterns repeat, and which completed trades match a narrow filter.
 
+## First Implementation Slice
+
+The first Milestone 5 slice is review tagging and filtering.
+
+This slice adds creation-time tags to `TradeReview`, surfaces tags in review list/detail output, and supports exact tag filters on `list-trade-reviews`.
+
+The slice stays narrow:
+
+- tags are simple lowercase slugs
+- tags are local review labels, not canonical taxonomy entities
+- existing reviews are not edited in this slice
+- no reporting/export surface is introduced yet
+- no generated coaching or AI review content is introduced
+
+## Second Implementation Slice
+
+The second Milestone 5 slice is review quality scoring.
+
+This slice adds optional 1-5 creation-time scores to `TradeReview` for:
+
+- process quality
+- setup quality
+- execution quality
+- exit quality
+
+The scores are displayed in review list/detail output and can be filtered exactly through `list-trade-reviews`.
+
+The slice stays narrow:
+
+- existing reviews can remain unscored
+- scores are review metadata, not analytics
+- no review editing or backfill workflow is introduced
+- no reporting/export surface is introduced yet
+- no generated coaching or AI review content is introduced
+
+## Third Implementation Slice
+
+The third Milestone 5 slice is Markdown journal export for completed reviewed trades.
+
+This slice adds `export-review-journal --output <path>` and reuses the existing review filters:
+
+- rating
+- purpose
+- direction
+- repeated tags
+- process score
+- setup quality
+- execution quality
+- exit quality
+- sort order
+
+The export writes one Markdown section per matching review and includes factual journal fields:
+
+- review identity and reviewed timestamp
+- linked position and trade plan identities
+- purpose and direction
+- realized P&L
+- rating, tags, and quality scores
+- summary, what went well, and what went poorly
+- lessons learned and follow-up actions
+- linked market-context metadata
+
+The slice stays narrow:
+
+- parent output directories must already exist
+- existing files require explicit `--overwrite`
+- empty results write no file
+- context payloads stay isolated to `show-context`
+- no CSV, charts, aggregate statistics, backup/restore, review editing, analytics, recommendations, or generated coaching are introduced
+
 ## Local Backup And Export Expectations
 
 - the system should remain local-first

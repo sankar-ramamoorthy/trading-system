@@ -15,6 +15,11 @@ class TradeReview:
     what_went_poorly: str
     lessons_learned: list[str] = field(default_factory=list)
     follow_up_actions: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
     rating: int | None = None
+    process_score: int | None = None
+    setup_quality: int | None = None
+    execution_quality: int | None = None
+    exit_quality: int | None = None
     reviewed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     id: UUID = field(default_factory=uuid4)

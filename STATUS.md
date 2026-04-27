@@ -2,14 +2,15 @@
 
 ## Current Milestone
 
-Milestone 4 - Read-only market context
+Milestone 5 - Review, learning, and local operations
 
 ## Implementation State
 
 - Milestone 1: complete (MVP)
 - Milestone 2: complete (core workflow extensions)
 - Milestone 3: complete (manual workflow usability)
-- Milestone 4: started
+- Milestone 4: complete (read-only market context)
+- Milestone 5: started
 
 The system is currently a functional, CLI-driven, manual trading workflow with local JSON persistence and lifecycle tracking.
 
@@ -21,7 +22,7 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - Manual fill recording with optional `OrderIntent` linkage
 - Automatic position state tracking and closure
 - Read-side realized P&L for closed positions
-- Trade review creation and inspection
+- Trade review creation, tagging, quality scoring, filtering, inspection, and Markdown journal export
 - Lifecycle event audit trail and position timeline output
 - CLI-based write and read workflows
 - Filtering and sorting for core read models
@@ -43,9 +44,9 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - Domain model is the source of truth for trade meaning
 - External data must remain read-only and non-canonical
 
-## Active Slice (Milestone 4 Follow-Up)
+## Completed Slice (Milestone 4)
 
-Evaluate whether the implemented local snapshot workflow is sufficient for Milestone 4 closeout:
+Milestone 4 is closed with the implemented local snapshot workflow:
 
 - Context snapshots are imported from explicit local JSON files
 - Snapshots can be attached to an instrument, trade plan, position, or trade review target
@@ -56,6 +57,20 @@ Evaluate whether the implemented local snapshot workflow is sufficient for Miles
 - Context informs decisions but does not define trade meaning
 - External provider adapters such as yfinance remain deferred
 
+## Active Slice (Milestone 5)
+
+Review tags and filtering are complete as the first narrow Milestone 5 implementation slice.
+
+This slice adds creation-time tags to trade reviews, shows tags in review list/detail output, and supports `list-trade-reviews --tag` filters. It does not add review editing, reporting/export, a tag taxonomy, generated coaching, or broader analytics.
+
+Review quality scores are complete as the second narrow Milestone 5 implementation slice.
+
+This slice adds optional 1-5 process, setup, execution, and exit quality scores to trade reviews, shows them in review read output, and supports exact score filters. It does not add review editing, reporting/export, generated coaching, or broader analytics.
+
+Markdown journal export is complete as the third narrow Milestone 5 implementation slice.
+
+This slice adds `export-review-journal --output <path>` for reviewed trades. It reuses review filters, writes one Markdown section per review, refuses to overwrite existing files without `--overwrite`, omits full market-context payloads, and reports `No trade reviews found.` without creating a file when filters match nothing. It does not add analytics, recommendations, generated coaching, CSV export, backup/restore, or review editing.
+
 ## Immediate Design Guardrails
 
 - Do not couple context data to domain entities as canonical trade meaning
@@ -64,6 +79,7 @@ Evaluate whether the implemented local snapshot workflow is sufficient for Miles
 - Keep all context interactions explicit and user-invoked
 - Preserve auditability of retrieved context
 - Add an ADR before introducing an external market data provider
+- Keep Milestone 5 reporting and export work narrow, local-first, and journal-grade
 
 ## Architecture Reference (Current)
 
