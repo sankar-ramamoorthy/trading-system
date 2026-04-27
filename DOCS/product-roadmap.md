@@ -74,7 +74,7 @@ Non-goals:
 
 Status: current focus.
 
-Milestone 6 introduces the first external market data provider behind the accepted ADR-007 boundary.
+Milestone 6 introduces the first external market data provider behind the accepted ADR-007 boundary. The first implementation slice is the `fetch-market-data` command for prototype-grade `yfinance` daily OHLCV snapshots.
 
 Allowed direction:
 
@@ -82,6 +82,12 @@ Allowed direction:
 - daily OHLCV history as the first provider data shape
 - explicit user-invoked fetches stored as `MarketContextSnapshot` records
 - advisory, non-canonical market data for planning and review
+
+First implementation slice:
+
+- `fetch-market-data` for user-invoked daily OHLCV snapshots
+- explicit snapshot storage as `MarketContextSnapshot` records
+- optional linking to trade-plan, position, or trade-review targets
 
 Non-goals:
 

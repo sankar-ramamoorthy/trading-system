@@ -11,7 +11,7 @@ Milestone 6 - Read-only market data provider integration
 - Milestone 3: complete (manual workflow usability)
 - Milestone 4: complete (read-only market context)
 - Milestone 5: complete (review, learning, and local operations)
-- Milestone 6: started (provider-boundary ADR accepted)
+- Milestone 6: started (daily OHLCV slice implemented)
 
 The system is currently a functional, CLI-driven, manual trading workflow with local JSON persistence, lifecycle tracking, review/export support, local JSON operations, and read-only context snapshots.
 
@@ -34,7 +34,7 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - Market context metadata surfaced alongside trade plan, position, and trade review detail views
 - Broad `list-context` discovery filters for context type, source, observed range, and captured range
 - `copy-context` workflow for copying an existing snapshot to a trade plan, position, or trade review target without mutating the original
-- Accepted ADR boundary for a future prototype `yfinance` daily-OHLCV provider
+- `fetch-market-data` fetches read-only daily OHLCV snapshots from prototype-grade `yfinance`
 
 ## Active Constraints
 
@@ -77,9 +77,9 @@ Milestone 5 is complete because reviews can now be tagged, scored, filtered, ins
 
 ADR-007 is accepted as the first Milestone 6 slice.
 
-This ADR allows a future optional prototype-grade `yfinance` provider adapter for read-only daily OHLCV data. Provider output must be stored as explicit `MarketContextSnapshot` records before the rest of the application uses it. Provider data remains advisory and non-canonical.
+The first Milestone 6 slice now implements `fetch-market-data` for optional prototype-grade `yfinance` daily OHLCV snapshots. Provider output is stored as explicit `MarketContextSnapshot` records before the rest of the application uses it. Provider data remains advisory and non-canonical.
 
-Provider implementation has not started in code yet.
+Provider implementation is underway in code with `fetch-market-data`.
 
 ## Immediate Design Guardrails
 

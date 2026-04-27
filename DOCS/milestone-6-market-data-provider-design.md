@@ -25,9 +25,15 @@ ADR-007 accepts the provider boundary for Milestone 6:
 
 ## First Implementation Target
 
-The first implementation slice should fetch daily OHLCV data for a user-selected symbol or instrument and store the result as a timestamped market context snapshot.
+The first implementation slice is implemented as `fetch-market-data`, which fetches daily OHLCV data for a user-selected symbol or instrument and stores the result as a timestamped market context snapshot.
 
 The workflow should be explicit and user-invoked. It should not run as a background refresh or live data feed.
+
+## Implemented Slice
+
+- `fetch-market-data <symbol> --start YYYY-MM-DD --end YYYY-MM-DD`
+- optional `--instrument-id`, `--target-type`, and `--target-id` linking
+- `daily_ohlcv` snapshot payloads with raw OHLCV plus adjusted close
 
 ## Non-Goals
 

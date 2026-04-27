@@ -1,6 +1,6 @@
 """Typer command-line entrypoint for local trading workflows."""
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 import json
 import os
@@ -24,6 +24,9 @@ from trading_system.infrastructure.json.repositories import (
 )
 from trading_system.infrastructure.json.market_context_source import (
     JsonMarketContextImportSource,
+)
+from trading_system.infrastructure.yfinance.market_data_source import (
+    YFinanceDailyOHLCVImportSource,
 )
 from trading_system.services.cancel_order_intent_service import CancelOrderIntentService
 from trading_system.rules_engine.implementations.risk_defined_rule import RiskDefinedRule
@@ -1183,6 +1186,39 @@ def import_context(
     _echo_context_snapshot_result(snapshot)
 
 
+@app.command("fetch-market-data")
+def fetch_market_data(
+    symbol: str = typer.Argument(...),
+    start: str = typer.Option(..., "--start"),
+    end: str = typer.Option(..., "--end"),
+    instrument_id: str | None = typer.Option(None, "--instrument-id"),
+    target_type: ContextTargetOption | None = typer.Option(None, "--target-type"),
+    target_id: str | None = typer.Option(None, "--target-id"),
+) -> None:
+    """Fetch one read-only daily OHLCV snapshot from yfinance."""
+    repositories = _repositories()
+    start_date = _parse_iso_date(start)
+    end_date = _parse_iso_date(end)
+    source = YFinanceDailyOHLCVImportSource(symbol, start_date, end_date)
+    snapshot = _run_service(
+        lambda: MarketContextImportService(
+            snapshot_repository=repositories.market_context_snapshots,
+            plan_repository=repositories.plans,
+            position_repository=repositories.positions,
+            review_repository=repositories.reviews,
+            idea_repository=repositories.ideas,
+        ).import_context(
+            source,
+            source="yfinance",
+            source_ref=source.source_ref,
+            instrument_id=None if instrument_id is None else _parse_uuid(instrument_id),
+            target_type=None if target_type is None else _context_target_type(target_type),
+            target_id=None if target_id is None else _parse_uuid(target_id),
+        )
+    )
+    _echo_context_snapshot_result(snapshot)
+
+
 @app.command("copy-context")
 def copy_context(
     snapshot_id: str,
@@ -1385,6 +1421,14 @@ def _parse_optional_context_datetime(value: str | None) -> datetime | None:
         return datetime.fromisoformat(value)
     except ValueError as exc:
         raise typer.BadParameter("must be a valid ISO datetime") from exc
+
+
+def _parse_iso_date(value: str) -> date:
+    """Parse an ISO date argument with a clear Typer error."""
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise typer.BadParameter("must be a valid ISO date") from exc
 
 
 def _context_target_type(value: ContextTargetOption) -> str:
