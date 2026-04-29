@@ -2,7 +2,7 @@
 
 ## Current Milestone
 
-Milestone 6 - Read-only market data provider integration
+Milestone 6 is complete. Next accepted direction: ADR-008 API-first web product and trade-capture draft workflow.
 
 ## Implementation State
 
@@ -11,7 +11,7 @@ Milestone 6 - Read-only market data provider integration
 - Milestone 3: complete (manual workflow usability)
 - Milestone 4: complete (read-only market context)
 - Milestone 5: complete (review, learning, and local operations)
-- Milestone 6: in progress (6A and 6B Issue 1 complete)
+- Milestone 6: complete (read-only market data provider integration)
 
 The system is currently a functional, CLI-driven, manual trading workflow with local JSON persistence, lifecycle tracking, review/export support, local JSON operations, and read-only context snapshots.
 
@@ -34,7 +34,7 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - Market context metadata surfaced alongside trade plan, position, and trade review detail views
 - Broad `list-context` discovery filters for context type, source, observed range, and captured range
 - `copy-context` workflow for copying an existing snapshot to a trade plan, position, or trade review target without mutating the original
-- `fetch-market-data` fetches read-only daily OHLCV snapshots from prototype-grade `yfinance`
+- `fetch-market-data` fetches read-only daily OHLCV snapshots from yfinance or Massive.com
 
 ## Active Constraints
 
@@ -95,7 +95,7 @@ The CLI supports:
 uv run trading-system fetch-market-data AAPL --provider yfinance --start 2026-04-01 --end 2026-04-30
 ```
 
-Existing calls without `--provider` still default to yfinance. Unsupported providers fail clearly. yfinance remains the only implemented provider.
+Existing calls without `--provider` still default to yfinance. Unsupported providers fail clearly. yfinance remains the default provider.
 
 Focused validation recorded on 2026-04-27:
 
@@ -104,16 +104,61 @@ Focused validation recorded on 2026-04-27:
 
 Closeout is recorded in `DOCS/milestone-6b-provider-boundary-hardening-closeout.md`.
 
-## Active Slice (Milestone 6C)
+## Completed Slice (Milestone 6C Issue 1)
 
-Milestone 6 remains open after 6B.
+Milestone 6C Issue 1 is complete. ADR-009 accepts Massive.com, formerly Polygon.io, as the next provider candidate after yfinance.
 
-Next work:
+ADR-009 records:
 
-- Milestone 6C: plan access to Massive.com, formerly Polygon.io, as the next provider candidate
-- Milestone 6D: close Milestone 6 once the provider boundary and next-provider direction are documented or implemented narrowly
+- official `massive` Python client as the preferred first implementation path
+- `MASSIVE_API_KEY` as the initial credential boundary
+- daily aggregate/OHLCV-style bars as the first data shape
+- `MarketContextSnapshot` as the storage boundary
+- yfinance remains the default provider until a later decision changes it
 
-ADR-008 API-first web product work should begin after Milestone 6 is closed or explicitly paused.
+No Massive.com dependency or runtime adapter was added by Issue 1.
+
+## Completed Slice (Milestone 6C Issue 2)
+
+Milestone 6C Issue 2 is complete. The system now has a narrow Massive.com daily bars adapter behind the existing provider registry.
+
+The CLI supports:
+
+```powershell
+uv run trading-system fetch-market-data AAPL --provider massive --start 2026-04-01 --end 2026-04-30
+```
+
+Massive-backed fetches require `MASSIVE_API_KEY`. They use the official `massive` Python client, store snapshots with `source = "massive"`, and keep provider data read-only, advisory, and non-canonical. yfinance remains the default provider.
+
+Focused validation recorded on 2026-04-29:
+
+- 21 focused market-data tests passed
+- 177 full-suite tests passed
+
+Closeout is recorded in `DOCS/milestone-6c-massive-daily-bars-closeout.md`.
+
+## Completed Slice (Milestone 6D)
+
+Milestone 6D is complete. Milestone 6 is closed with two implemented provider paths behind the market-data provider boundary.
+
+Final Milestone 6 state:
+
+- yfinance remains the default provider.
+- Massive.com is available through `--provider massive`.
+- Massive-backed fetches require `MASSIVE_API_KEY`.
+- Daily OHLCV snapshots remain read-only, advisory, and non-canonical.
+- Provider response objects stay inside infrastructure adapters.
+- No automatic fallback exists between providers.
+
+Final validation recorded on 2026-04-29:
+
+- 177 full-suite tests passed
+
+Closeout is recorded in `DOCS/milestone-6-closeout.md`.
+
+## Next Slice
+
+The next accepted implementation direction is ADR-008 API-first web product and trade-capture draft workflow planning/implementation.
 
 ## Immediate Design Guardrails
 
@@ -123,7 +168,7 @@ ADR-008 API-first web product work should begin after Milestone 6 is closed or e
 - Keep all context interactions explicit and user-invoked
 - Preserve auditability of retrieved context
 - Keep provider response objects and schemas out of domain logic
-- Keep the first provider data shape limited to daily OHLCV history
+- Keep any future provider data-shape expansion behind a new explicit issue or ADR update
 - Treat `yfinance` as prototype-grade, not production-grade market data infrastructure
 
 ## Architecture Reference (Current)
@@ -134,6 +179,7 @@ Authoritative documents for implementation:
 - `DOCS/domain-model.md`
 - `DOCS/ADR/`
 - `DOCS/milestone-6-market-data-provider-design.md`
+- `DOCS/ADR/009-massive-provider-boundary.md`
 
 The domain model remains the canonical source of truth for entities and relationships.
 
