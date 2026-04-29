@@ -2,11 +2,11 @@
 
 ## Current Milestone
 
-Milestone 6 is complete. Next accepted direction: ADR-008 API-first web product and trade-capture draft workflow.
+Milestone 7 has started. Active direction: ADR-008 API-first web product and trade-capture draft workflow.
 
 ## Current Slice
 
-Milestone 6D closeout is complete. The next implementation slice should be planned from ADR-008.
+Milestone 7A is complete. The next implementation slice is Milestone 7B: Reference Lookup Foundation.
 
 ## Constraints
 
@@ -22,7 +22,9 @@ Milestone 6D closeout is complete. The next implementation slice should be plann
 
 ## Next Steps
 
-- Begin ADR-008 API-first web product and trade-capture draft planning/implementation.
+- Plan and implement Milestone 7B: Reference Lookup Foundation.
+- Continue Milestone 7 through the documented issue map in `DOCS/milestone-7-issue-map.md`.
+- Preserve the 7A boundary: runtime scaffolding is complete; lookup, draft contracts, parsing, and save workflow remain later 7.x issues.
 - Keep `fetch-market-data` scoped to read-only daily OHLCV snapshots unless a new issue explicitly expands provider scope.
 - Preserve the distinction between canonical trade records, read-only market context, and derived read models.
 - Keep provider response objects and schemas out of domain logic.

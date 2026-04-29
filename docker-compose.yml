@@ -1,0 +1,26 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      TRADING_SYSTEM_STORE_PATH: /data/store.json
+      TRADING_SYSTEM_LLM_API_BASE: ${TRADING_SYSTEM_LLM_API_BASE:-http://host.docker.internal:11434}
+      TRADING_SYSTEM_LLM_MODEL: ${TRADING_SYSTEM_LLM_MODEL:-ollama_chat/llama3.1}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./.trading-system:/data
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - api
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+    ports:
+      - "5173:5173"

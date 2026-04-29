@@ -2,7 +2,7 @@
 
 ## Current Milestone
 
-Milestone 6 is complete. Next accepted direction: ADR-008 API-first web product and trade-capture draft workflow.
+Milestone 7 has started. The accepted direction is ADR-008 API-first web product and trade-capture draft workflow.
 
 ## Implementation State
 
@@ -35,6 +35,9 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - Broad `list-context` discovery filters for context type, source, observed range, and captured range
 - `copy-context` workflow for copying an existing snapshot to a trade plan, position, or trade review target without mutating the original
 - `fetch-market-data` fetches read-only daily OHLCV snapshots from yfinance or Massive.com
+- FastAPI runtime skeleton with `GET /health`
+- Vite React TypeScript frontend shell for the local web product
+- Docker Compose runtime skeleton for backend and frontend containers
 
 ## Active Constraints
 
@@ -156,9 +159,28 @@ Final validation recorded on 2026-04-29:
 
 Closeout is recorded in `DOCS/milestone-6-closeout.md`.
 
+## Completed Slice (Milestone 7A)
+
+Milestone 7A is the Dockerized runtime foundation for the API-first trade-capture workspace.
+
+This slice adds a minimal FastAPI entrypoint, a Vite React TypeScript frontend shell, Docker Compose for the backend and frontend, and host Ollama environment placeholders for later LiteLLM parser work.
+
+Milestone 7A intentionally does not add reference lookup, draft contracts, natural-language parsing, save workflow, approval, execution, positions, fills, broker integration, or recommendations.
+
+Validation recorded on 2026-04-29:
+
+- 1 focused API health test passed
+- 178 full-suite tests passed
+- frontend install completed with 0 vulnerabilities
+- frontend production build passed
+- Docker Compose config was valid
+- Docker Compose built and started `api` and `web`
+- API health returned `{"status":"ok"}`
+- web endpoint returned HTTP 200
+
 ## Next Slice
 
-The next accepted implementation direction is ADR-008 API-first web product and trade-capture draft workflow planning/implementation.
+Milestone 7B: Reference Lookup Foundation.
 
 ## Immediate Design Guardrails
 
@@ -180,6 +202,9 @@ Authoritative documents for implementation:
 - `DOCS/ADR/`
 - `DOCS/milestone-6-market-data-provider-design.md`
 - `DOCS/ADR/009-massive-provider-boundary.md`
+- `DOCS/ADR/008-api-first-web-product-and-trade-capture-drafts.md`
+- `DOCS/milestone-7-issue-map.md`
+- `DOCS/milestone-7a-runtime-skeleton.md`
 
 The domain model remains the canonical source of truth for entities and relationships.
 
