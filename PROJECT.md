@@ -2,11 +2,11 @@
 
 ## Current Milestone
 
-Milestone 6 - Read-only market data provider integration
+Milestone 6 is complete. Next accepted direction: ADR-008 API-first web product and trade-capture draft workflow.
 
 ## Current Slice
 
-`fetch-market-data` is implemented as the first narrow Milestone 6 slice.
+Milestone 6D closeout is complete. The next implementation slice should be planned from ADR-008.
 
 ## Constraints
 
@@ -16,13 +16,14 @@ Milestone 6 - Read-only market data provider integration
 - External context does not define canonical trade meaning.
 - No broker integration, execution triggers, streaming, or automated plan creation.
 - No AI or ML decision-making.
-- External provider adapters such as yfinance must stay behind the accepted ADR-007 boundary.
-- Milestone 6 work must stay read-only, local-first, explicit, and auditable.
+- External provider adapters such as yfinance and Massive.com must stay behind the accepted ADR-007 and ADR-009 boundaries.
+- Market data provider work must stay read-only, local-first, explicit, and auditable unless a later ADR changes the boundary.
 - Avoid broad portfolio analytics, optimization systems, cloud operations, generated coaching, or provider-driven trade meaning.
 
 ## Next Steps
 
-- Keep `fetch-market-data` scoped to read-only daily OHLCV snapshots.
+- Begin ADR-008 API-first web product and trade-capture draft planning/implementation.
+- Keep `fetch-market-data` scoped to read-only daily OHLCV snapshots unless a new issue explicitly expands provider scope.
 - Preserve the distinction between canonical trade records, read-only market context, and derived read models.
 - Keep provider response objects and schemas out of domain logic.
 - Keep market context output visibly separate from `TradeIdea`, `TradeThesis`, `TradePlan`, `Position`, `Fill`, and `TradeReview` meaning.

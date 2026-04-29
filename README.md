@@ -208,13 +208,14 @@ uv run trading-system list-context --target-type trade-plan --target-id <trade-p
 uv run trading-system list-context --context-type price_snapshot --source local-file --observed-from 2026-04-26T00:00:00+00:00 --observed-to 2026-04-26T23:59:59+00:00
 uv run trading-system fetch-market-data AAPL --start 2026-04-01 --end 2026-04-30
 uv run trading-system fetch-market-data AAPL --provider yfinance --start 2026-04-01 --end 2026-04-30
+uv run trading-system fetch-market-data AAPL --provider massive --start 2026-04-01 --end 2026-04-30
 uv run trading-system fetch-market-data AAPL --start 2026-04-01 --end 2026-04-30 --target-type trade-plan --target-id <trade-plan-id>
 uv run trading-system show-context <market-context-snapshot-id>
 ```
 
 Linked snapshots also appear as metadata-only `Market context` sections in `show-trade-plan`, `show-position`, and `show-trade-review`. Use `show-context` when you need to inspect the full stored payload. `copy-context` creates a new linked snapshot from an existing one; it does not mutate the original import.
 
-ADR-007 accepts the Milestone 6 provider boundary. The first provider slice now implements `fetch-market-data` for optional prototype-grade `yfinance` daily OHLCV snapshots stored as explicit `MarketContextSnapshot` records. `yfinance` is currently the only implemented provider; `--provider yfinance` is accepted explicitly and remains the default. External data remains read-only, advisory, and non-canonical.
+ADR-007 and ADR-009 define the Milestone 6 provider boundary. Milestone 6 is complete: `fetch-market-data` stores provider-backed daily OHLCV snapshots as explicit `MarketContextSnapshot` records. `yfinance` remains the default provider; `--provider yfinance` and `--provider massive` are both accepted explicitly. Massive.com fetches require `MASSIVE_API_KEY`. External data remains read-only, advisory, and non-canonical.
 
 ## Review Tags
 
@@ -271,7 +272,7 @@ Backups are exact timestamped JSON copies of the configured store and default to
 - prices and fills are user-entered
 - data persists locally in JSON by default
 - no broker integration exists yet
-- market context exists as explicit read-only local snapshots; `fetch-market-data` adds a prototype `yfinance` daily-OHLCV ingestion path behind the same boundary
+- market context exists as explicit read-only local snapshots; `fetch-market-data` supports yfinance and Massive.com daily-OHLCV ingestion paths behind the same boundary
 - the system is currently a discipline and journaling tool
 
 ---

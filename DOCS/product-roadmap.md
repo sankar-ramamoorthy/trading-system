@@ -72,7 +72,7 @@ Non-goals:
 
 ### Milestone 6: Read-Only Market Data Provider Integration
 
-Status: current focus. Milestone 6A and 6B Issue 1 are complete; 6C remains.
+Status: complete.
 
 Milestone 6 introduces the first external market data provider behind the accepted ADR-007 boundary. The first implementation slice is the `fetch-market-data` command for prototype-grade `yfinance` daily OHLCV snapshots.
 
@@ -82,7 +82,7 @@ Allowed direction:
 - daily OHLCV history as the first provider data shape
 - explicit user-invoked fetches stored as `MarketContextSnapshot` records
 - advisory, non-canonical market data for planning and review
-- explicit provider selection with yfinance as the only implemented provider
+- explicit provider selection with yfinance as the default provider and Massive.com as an additional implemented provider
 
 Completed first implementation slice:
 
@@ -90,14 +90,16 @@ Completed first implementation slice:
 - explicit snapshot storage as `MarketContextSnapshot` records
 - optional linking to trade-plan, position, or trade-review targets
 - provider registry boundary and `--provider yfinance`
+- narrow Massive.com daily bars adapter through `--provider massive`
 
 Current sequencing:
 
 - Milestone 6A: prototype-grade `yfinance` daily OHLCV snapshot fetch is complete.
 - Milestone 6B Issue 1: provider-boundary hardening is complete.
-- Milestone 6C: plan access to Massive.com, formerly Polygon.io, as the next market data provider candidate.
-- Milestone 6D: close Milestone 6 once the provider boundary and next-provider direction are documented or implemented narrowly.
-- After Milestone 6 closeout, begin ADR-008 API-first web product work.
+- Milestone 6C Issue 1: Massive.com provider boundary is accepted in ADR-009.
+- Milestone 6C Issue 2: narrow Massive.com daily bars adapter is complete.
+- Milestone 6D: Milestone 6 closeout is complete.
+- Next accepted direction: begin ADR-008 API-first web product work.
 
 Non-goals:
 
@@ -210,6 +212,7 @@ The current repository should first generate trustworthy ground truth. Learning 
 - [Milestone 4 Market Context Design](milestone-4-market-context-design.md)
 - [Milestone 5 Review Learning And Local Operations Design](milestone-5-review-learning-and-local-ops-design.md)
 - [Milestone 6 Market Data Provider Design](milestone-6-market-data-provider-design.md)
+- [Milestone 6 Market Data Provider Closeout](milestone-6-closeout.md)
 - [ADR-005: MVP Definition and Boundaries](ADR/005-mvp-definition-and-boundaries.md)
 - [ADR-006: Deferred Learning Systems Boundary](ADR/006-deferred-learning-systems-boundary.md)
 - [ADR-007: Market Data Provider Boundary](ADR/007-market-data-provider-boundary.md)

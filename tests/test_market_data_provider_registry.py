@@ -30,8 +30,25 @@ def test_registry_rejects_unsupported_provider() -> None:
     """Only explicitly supported providers can be selected."""
     with pytest.raises(ValueError, match="Market data provider is not supported"):
         MarketDataProviderRegistry().create_daily_ohlcv_source(
-            provider="massive",
+            provider="iex",
             symbol="AAPL",
             start=date(2026, 4, 1),
             end=date(2026, 4, 3),
         )
+
+
+def test_registry_resolves_massive_daily_ohlcv_source() -> None:
+    """The registry returns Massive.com source metadata for daily OHLCV imports."""
+    selection = MarketDataProviderRegistry().create_daily_ohlcv_source(
+        provider="MASSIVE",
+        symbol="aapl",
+        start=date(2026, 4, 1),
+        end=date(2026, 4, 3),
+    )
+
+    assert selection.source == "massive"
+    assert selection.source_ref == (
+        "symbol=AAPL;start=2026-04-01;end=2026-04-03;"
+        "provider=massive;timespan=day;adjusted=false"
+    )
+    assert callable(selection.source_adapter.load)

@@ -400,6 +400,20 @@ wheels = [
 ]
 
 [[package]]
+name = "massive"
+version = "2.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "certifi" },
+    { name = "urllib3" },
+    { name = "websockets" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/90/64/e2d0d866248cc7613d3c34419250385563baf939f14405bfbae30d884fac/massive-2.6.0.tar.gz", hash = "sha256:b59885eb015937d60e8009f6d9bd936db2ab7a9d36ae00651f62190897f3043f", size = 50892 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7f/2b/7bb7d11e579d973d55a4c90deefe0f18a586d5f597e81cd51d0e7adaa861/massive-2.6.0-py3-none-any.whl", hash = "sha256:32735aa64d789ae97177c66eae959d27078e4d1447b3c57e53a683293093e42d", size = 68667 },
+]
+
+[[package]]
 name = "mdurl"
 version = "0.1.2"
 source = { registry = "https://pypi.org/simple" }
@@ -756,6 +770,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
+    { name = "massive" },
     { name = "psycopg" },
     { name = "sqlalchemy" },
     { name = "typer" },
@@ -770,6 +785,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.13" },
+    { name = "massive", specifier = ">=2.5,<3.0" },
     { name = "psycopg", specifier = ">=3.2" },
     { name = "sqlalchemy", specifier = ">=2.0" },
     { name = "typer", specifier = ">=0.12" },

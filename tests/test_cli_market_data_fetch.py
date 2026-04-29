@@ -158,7 +158,7 @@ def test_fetch_market_data_rejects_unsupported_provider(tmp_path) -> None:
             "fetch-market-data",
             "AAPL",
             "--provider",
-            "massive",
+            "iex",
             "--start",
             "2026-04-01",
             "--end",
@@ -171,6 +171,91 @@ def test_fetch_market_data_rejects_unsupported_provider(tmp_path) -> None:
 
     assert result.exit_code != 0
     assert "Market data provider is not supported." in result.output
+
+
+def test_fetch_market_data_accepts_massive_provider(tmp_path, monkeypatch) -> None:
+    """The CLI can select Massive.com and store provider-backed snapshots."""
+    store_path = tmp_path / "store.json"
+    instrument_id = uuid4()
+    monkeypatch.setattr(
+        "trading_system.infrastructure.massive.market_data_source.import_module",
+        lambda name: SimpleNamespace(
+            RESTClient=lambda api_key: _MassiveClient(
+                [{"t": 1775001600000, "o": 1, "h": 2, "l": 1, "c": 2, "v": 100}]
+            )
+        ),
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "fetch-market-data",
+            "aapl",
+            "--provider",
+            "massive",
+            "--start",
+            "2026-04-01",
+            "--end",
+            "2026-04-03",
+            "--instrument-id",
+            str(instrument_id),
+        ],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path), "MASSIVE_API_KEY": "test-key"},
+    )
+
+    assert result.exit_code == 0
+    snapshot_id = _lines(result.output)[0].split(": ")[1]
+    assert "context_type: daily_ohlcv" in result.output
+    assert "source: massive" in result.output
+    assert "instrument_id: " + str(instrument_id) in result.output
+
+    shown = runner.invoke(
+        app,
+        ["show-context", snapshot_id],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert shown.exit_code == 0
+    assert '"provider": "massive"' in shown.output
+    assert '"end": "2026-04-03"' in shown.output
+
+
+def test_fetch_market_data_massive_requires_api_key(tmp_path, monkeypatch) -> None:
+    """Missing Massive credentials fail before a snapshot is stored."""
+    store_path = tmp_path / "store.json"
+    monkeypatch.setattr(
+        "trading_system.infrastructure.massive.market_data_source.import_module",
+        lambda name: SimpleNamespace(RESTClient=lambda api_key: _MassiveClient([])),
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "fetch-market-data",
+            "AAPL",
+            "--provider",
+            "massive",
+            "--start",
+            "2026-04-01",
+            "--end",
+            "2026-04-03",
+            "--instrument-id",
+            str(uuid4()),
+        ],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert result.exit_code != 0
+    assert "MASSIVE_API_KEY is required" in result.output
+
+    listed = runner.invoke(
+        app,
+        ["list-context"],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert listed.exit_code == 0
+    assert "No market context snapshots found." in listed.output
 
 
 def test_fetch_market_data_requires_instrument_or_target(tmp_path, monkeypatch) -> None:
@@ -244,3 +329,11 @@ class _Frame:
 
     def iterrows(self):
         return iter(self._rows)
+
+
+class _MassiveClient:
+    def __init__(self, bars):
+        self._bars = bars
+
+    def list_aggs(self, **kwargs):
+        return self._bars
