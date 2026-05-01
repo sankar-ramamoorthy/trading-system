@@ -1,0 +1,18 @@
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+
+WORKDIR /app
+
+ENV PYTHONUNBUFFERED=1
+ENV UV_LINK_MODE=copy
+ENV TRADING_SYSTEM_STORE_PATH=/data/store.json
+ENV TRADING_SYSTEM_LLM_API_BASE=http://host.docker.internal:11434
+ENV TRADING_SYSTEM_LLM_MODEL=ollama_chat/llama3.1
+
+COPY pyproject.toml uv.lock README.md ./
+COPY src ./src
+
+RUN uv sync --frozen --no-dev
+
+EXPOSE 8000
+
+CMD ["uv", "run", "uvicorn", "trading_system.app.api:app", "--host", "0.0.0.0", "--port", "8000"]

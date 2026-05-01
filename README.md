@@ -75,6 +75,7 @@ See:
 - `DOCS/ADR/005-mvp-definition-and-boundaries.md`
 - `DOCS/ADR/006-deferred-learning-systems-boundary.md`
 - `DOCS/ADR/007-market-data-provider-boundary.md`
+- `DOCS/ADR/008-api-first-web-product-and-trade-capture-drafts.md`
 - `DOCS/domain-model.md`
 - `DOCS/milestone-1-summary.md`
 - `DOCS/milestone-2-roadmap.md`
@@ -83,6 +84,9 @@ See:
 - `DOCS/milestone-4-summary.md`
 - `DOCS/milestone-5-review-learning-and-local-ops-design.md`
 - `DOCS/milestone-6-market-data-provider-design.md`
+- `DOCS/milestone-7-issue-map.md`
+- `DOCS/milestone-7a-runtime-skeleton.md`
+- `DOCS/milestone-7b-reference-lookup-foundation.md`
 
 ---
 
@@ -338,6 +342,49 @@ Run CLI:
 uv run trading-system version
 uv run trading-system --help
 ```
+
+### Local Web Runtime
+
+Milestone 7A adds the first local web/API runtime shell. This slice is complete.
+
+Run the Dockerized app shell:
+
+```powershell
+docker compose up --build
+```
+
+Open the web app:
+
+```text
+http://localhost:5173
+```
+
+Check the API directly:
+
+```text
+http://localhost:8000/health
+```
+
+This web shell does not implement trade capture yet. Parser behavior, draft contracts, and save workflow are planned for later Milestone 7 issues.
+
+Host Ollama is expected at:
+
+```text
+http://host.docker.internal:11434
+```
+
+### Reference Lookup API
+
+Milestone 7B adds seeded local reference lookup for the future trade-capture workflow.
+
+```text
+GET http://localhost:8000/reference/instruments
+GET http://localhost:8000/reference/instruments/NVDA
+GET http://localhost:8000/reference/playbooks
+GET http://localhost:8000/reference/playbooks/pullback-to-trend
+```
+
+These endpoints let web/API workflows use symbols and playbook slugs instead of user-entered UUIDs.
 
 ---
 
