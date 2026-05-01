@@ -2,10 +2,19 @@ import { useEffect, useState } from "react";
 
 type HealthState = "checking" | "healthy" | "unreachable";
 
+type ReferenceSummary = {
+  instruments: number | null;
+  playbooks: number | null;
+};
+
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 export function App() {
   const [healthState, setHealthState] = useState<HealthState>("checking");
+  const [referenceSummary, setReferenceSummary] = useState<ReferenceSummary>({
+    instruments: null,
+    playbooks: null,
+  });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -28,6 +37,40 @@ export function App() {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadReferences() {
+      try {
+        const [instrumentResponse, playbookResponse] = await Promise.all([
+          fetch(`${apiBaseUrl}/reference/instruments`, {
+            signal: controller.signal,
+          }),
+          fetch(`${apiBaseUrl}/reference/playbooks`, {
+            signal: controller.signal,
+          }),
+        ]);
+        if (!instrumentResponse.ok || !playbookResponse.ok) {
+          return;
+        }
+        const instruments = (await instrumentResponse.json()) as unknown[];
+        const playbooks = (await playbookResponse.json()) as unknown[];
+        setReferenceSummary({
+          instruments: instruments.length,
+          playbooks: playbooks.length,
+        });
+      } catch {
+        if (!controller.signal.aborted) {
+          setReferenceSummary({ instruments: null, playbooks: null });
+        }
+      }
+    }
+
+    void loadReferences();
+
+    return () => controller.abort();
+  }, []);
+
   return (
     <main className="app-shell">
       <section className="status-panel">
@@ -44,6 +87,14 @@ export function App() {
           <div>
             <dt>Mode</dt>
             <dd>runtime skeleton</dd>
+          </div>
+          <div>
+            <dt>Instruments</dt>
+            <dd>{referenceSummary.instruments ?? "unavailable"}</dd>
+          </div>
+          <div>
+            <dt>Playbooks</dt>
+            <dd>{referenceSummary.playbooks ?? "unavailable"}</dd>
           </div>
         </dl>
       </section>

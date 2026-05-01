@@ -24,6 +24,8 @@ Ollama runs on the host for now. 7A does not implement trade capture.
 
 Add user-facing instrument and playbook lookup so web/API workflows can use symbols and playbook slugs instead of UUIDs.
 
+Status: complete.
+
 ### 7C: Trade Capture Draft Contract
 
 Define editable draft contracts for `TradeIdea`, `TradeThesis`, and `TradePlan`, including required fields, optional fields, and missing or ambiguous field reporting.

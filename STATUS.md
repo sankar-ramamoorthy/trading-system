@@ -38,6 +38,8 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - FastAPI runtime skeleton with `GET /health`
 - Vite React TypeScript frontend shell for the local web product
 - Docker Compose runtime skeleton for backend and frontend containers
+- Seeded reference lookup for instruments by symbol and playbooks by slug
+- FastAPI reference endpoints for instruments and playbooks
 
 ## Active Constraints
 
@@ -178,9 +180,25 @@ Validation recorded on 2026-04-29:
 - API health returned `{"status":"ok"}`
 - web endpoint returned HTTP 200
 
+## Completed Slice (Milestone 7B)
+
+Milestone 7B is the reference lookup foundation for API-first trade capture.
+
+This slice adds a `Playbook` reference entity, read-only reference-data repository port, seeded local instruments and playbooks, a reference lookup service, FastAPI reference endpoints, and frontend shell display of reference counts.
+
+User-facing lookup now works with symbols such as `NVDA` and playbook slugs such as `pullback-to-trend`. Internal UUIDs remain available in API responses for later save workflows, but they are not the user-facing lookup input.
+
+Milestone 7B intentionally does not add reference management screens, draft schemas, natural-language parsing, save workflow, approval, execution, positions, fills, broker integration, or recommendations.
+
+Validation recorded on 2026-04-29:
+
+- 8 focused reference/API tests passed
+- 185 full-suite tests passed
+- frontend production build passed
+
 ## Next Slice
 
-Milestone 7B: Reference Lookup Foundation.
+Milestone 7C: Trade Capture Draft Contract.
 
 ## Immediate Design Guardrails
 
@@ -205,6 +223,7 @@ Authoritative documents for implementation:
 - `DOCS/ADR/008-api-first-web-product-and-trade-capture-drafts.md`
 - `DOCS/milestone-7-issue-map.md`
 - `DOCS/milestone-7a-runtime-skeleton.md`
+- `DOCS/milestone-7b-reference-lookup-foundation.md`
 
 The domain model remains the canonical source of truth for entities and relationships.
 

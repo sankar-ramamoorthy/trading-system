@@ -86,6 +86,7 @@ See:
 - `DOCS/milestone-6-market-data-provider-design.md`
 - `DOCS/milestone-7-issue-map.md`
 - `DOCS/milestone-7a-runtime-skeleton.md`
+- `DOCS/milestone-7b-reference-lookup-foundation.md`
 
 ---
 
@@ -364,13 +365,26 @@ Check the API directly:
 http://localhost:8000/health
 ```
 
-This is runtime scaffolding only. Trade capture, parser behavior, lookup, and save workflow are planned for later Milestone 7 issues.
+This web shell does not implement trade capture yet. Parser behavior, draft contracts, and save workflow are planned for later Milestone 7 issues.
 
 Host Ollama is expected at:
 
 ```text
 http://host.docker.internal:11434
 ```
+
+### Reference Lookup API
+
+Milestone 7B adds seeded local reference lookup for the future trade-capture workflow.
+
+```text
+GET http://localhost:8000/reference/instruments
+GET http://localhost:8000/reference/instruments/NVDA
+GET http://localhost:8000/reference/playbooks
+GET http://localhost:8000/reference/playbooks/pullback-to-trend
+```
+
+These endpoints let web/API workflows use symbols and playbook slugs instead of user-entered UUIDs.
 
 ---
 
