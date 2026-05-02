@@ -30,6 +30,8 @@ Status: complete.
 
 Define editable draft contracts for `TradeIdea`, `TradeThesis`, and `TradePlan`, including required fields, optional fields, and missing or ambiguous field reporting.
 
+Status: complete.
+
 ### 7D: Natural-Language Parser Boundary
 
 Add the LLM-first parser boundary through LiteLLM, with host Ollama as the first local runtime.

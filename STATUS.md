@@ -40,6 +40,7 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - Docker Compose runtime skeleton for backend and frontend containers
 - Seeded reference lookup for instruments by symbol and playbooks by slug
 - FastAPI reference endpoints for instruments and playbooks
+- Trade-capture draft contracts with missing and ambiguous field reporting
 
 ## Active Constraints
 
@@ -196,9 +197,23 @@ Validation recorded on 2026-04-29:
 - 185 full-suite tests passed
 - frontend production build passed
 
+## Completed Slice (Milestone 7C)
+
+Milestone 7C is the trade-capture draft contract for the future parser, API, and frontend workflow.
+
+This slice adds editable draft contracts for `TradeIdea`, `TradeThesis`, and `TradePlan`, required and optional field definitions, stable API/UI field paths, missing-field reporting, ambiguous-field reporting, and save-readiness checks for parsed-but-unsaved trade capture state.
+
+Milestone 7C intentionally does not add natural-language parsing, LiteLLM/Ollama calls, trade-capture endpoints, local JSON save workflow, frontend capture workspace, approval, execution, positions, fills, broker integration, recommendations, or claim verification.
+
+Validation recorded on 2026-05-02:
+
+- 6 focused trade-capture draft tests passed
+- 14 focused trade-capture/reference/API tests passed
+- 191 full-suite tests passed
+
 ## Next Slice
 
-Milestone 7C: Trade Capture Draft Contract.
+Milestone 7D: Natural-Language Parser Boundary.
 
 ## Immediate Design Guardrails
 
@@ -224,6 +239,7 @@ Authoritative documents for implementation:
 - `DOCS/milestone-7-issue-map.md`
 - `DOCS/milestone-7a-runtime-skeleton.md`
 - `DOCS/milestone-7b-reference-lookup-foundation.md`
+- `DOCS/milestone-7c-trade-capture-draft-contract.md`
 
 The domain model remains the canonical source of truth for entities and relationships.
 
