@@ -91,6 +91,7 @@ See:
 - `DOCS/milestone-7d-natural-language-parser-boundary.md`
 - `DOCS/milestone-7e-fastapi-trade-capture-service.md`
 - `DOCS/milestone-7f-react-trade-capture-workspace.md`
+- `DOCS/milestone-7-closeout.md`
 
 ---
 
@@ -260,6 +261,55 @@ uv run trading-system export-review-journal --output .\journal.md --overwrite
 ```
 
 The export includes review identity, reviewed time, linked position and trade plan ids, purpose, direction, realized P&L, tags, quality scores, review notes, lessons, follow-up actions, and linked market-context metadata. It does not include full context payloads; use `show-context` for payload inspection. Existing output files are not replaced unless `--overwrite` is provided.
+
+## Web Trade Capture Interface
+
+Milestone 7 delivers a local Docker-based web interface for capturing trade ideas, theses, and plans from raw trader language.
+
+### Prerequisites
+
+Create a `.env` file in the project root:
+
+```text
+TRADING_SYSTEM_LLM_MODEL=groq/qwen/qwen3-32b
+TRADING_SYSTEM_LLM_API_BASE=https://api.groq.com/openai/v1
+GROQ_API_KEY=<your-groq-api-key>
+```
+
+For local Ollama instead of Groq:
+
+```text
+TRADING_SYSTEM_LLM_MODEL=ollama_chat/<model-name>
+TRADING_SYSTEM_LLM_API_BASE=http://host.docker.internal:11434
+```
+
+Do not commit `.env`. It is listed in `.gitignore`.
+
+### Start the Stack
+
+```powershell
+docker compose up --build
+```
+
+- API: `http://localhost:8000`
+- UI: `http://localhost:5173`
+
+### Workflow
+
+1. Open `http://localhost:5173` in a browser.
+2. Enter a raw trade note in the input field.
+3. Click **Parse** — the draft sections populate with extracted `TradeIdea`, `TradeThesis`, and `TradePlan` fields.
+4. Review and edit any missing or ambiguous fields shown by the validator.
+5. Click **Save** — the system creates linked records in the local JSON store.
+
+Records created through the web interface are identical to records created through the CLI and are immediately accessible via all existing read commands:
+
+```powershell
+uv run trading-system list-trade-ideas
+uv run trading-system show-trade-plan <trade-plan-id>
+```
+
+---
 
 ## Local JSON Operations
 

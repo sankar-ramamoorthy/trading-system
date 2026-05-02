@@ -58,9 +58,13 @@ Status: complete.
 
 Wire parse, edit, and save through local JSON persistence so explicit save creates linked `TradeIdea`, `TradeThesis`, and `TradePlan` records.
 
+Status: complete.
+
 ### 7H: Milestone Closeout
 
 Close the milestone with tests, documentation, roadmap/status updates, and final validation.
+
+Status: complete.
 
 ## Boundary
 

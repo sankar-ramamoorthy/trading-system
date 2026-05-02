@@ -277,9 +277,22 @@ Validation recorded on 2026-05-02:
 - All error states verified: empty input, missing required fields, ambiguous fields, unknown symbol, unknown plan ID
 - `uv run pytest`: 216 passed
 
+## Completed Slice (Milestone 7H)
+
+Milestone 7H is the Milestone 7 closeout.
+
+This slice produces the milestone closeout document, adds the web interface section to the README, records final validation results, and updates the knowledge base. No new domain features were added.
+
+Validation recorded on 2026-05-02:
+
+- `uv run pytest`: 216 passed
+- `npm.cmd run build`: passed
+- `docker compose up --build`: api and web containers healthy
+- `curl http://localhost:8000/health`: `{"status": "ok"}`
+
 ## Next Slice
 
-Milestone 7H: Milestone Closeout.
+Milestone 8 direction is outcome-level. See `DOCS/product-roadmap.md`.
 
 ## Immediate Design Guardrails
 
