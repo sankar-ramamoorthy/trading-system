@@ -256,9 +256,30 @@ Validation recorded on 2026-05-02:
 - 13 focused trade-capture/API tests passed
 - 216 full-suite tests passed
 
+## Completed Slice (Milestone 7G)
+
+Milestone 7G is the end-to-end save workflow acceptance slice.
+
+This slice validates the full parse→edit→save→persist workflow through Docker and the live API. No new domain features were added. Changes made during acceptance:
+
+- Switched LLM provider from Ollama to Groq (`groq/qwen/qwen3-32b`) via `.env` and `TRADING_SYSTEM_LLM_API_BASE`
+- Added `env_file` support to `docker-compose.yml` so secrets in `.env` reach the api container
+- Hardened `_string_list` in the LiteLLM parser to coerce a bare string to a single-element list
+- Hardened `_ambiguous_issue` candidates to coerce non-string types rather than raise
+
+Validation recorded on 2026-05-02:
+
+- `docker compose up --build`: api and web containers healthy
+- `POST /trade-capture/parse`: correctly extracts fields and surfaces validation issues
+- `POST /trade-capture/save`: creates linked `TradeIdea`, `TradeThesis`, `TradePlan` records
+- `GET /trade-capture/saved/{trade_plan_id}`: retrieves saved result summary
+- Local JSON store confirmed to contain all three linked records with `approval_state: draft`
+- All error states verified: empty input, missing required fields, ambiguous fields, unknown symbol, unknown plan ID
+- `uv run pytest`: 216 passed
+
 ## Next Slice
 
-Milestone 7G: End-to-End Save Workflow.
+Milestone 7H: Milestone Closeout.
 
 ## Immediate Design Guardrails
 
