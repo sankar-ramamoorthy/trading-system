@@ -9,6 +9,9 @@ from typing import Literal
 from uuid import UUID, uuid4
 
 import typer
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from trading_system.domain.rules.rule import Rule
 from trading_system.domain.trading.market_context import MarketContextSnapshot
@@ -46,6 +49,8 @@ from trading_system.services.review_service import ReviewService
 from trading_system.services.rule_service import RuleService
 from trading_system.services.trade_planning_service import TradePlanningService
 from trading_system.services.trade_query_service import TradeQueryService
+from trading_system.infrastructure.seeded_reference_data import SeededReferenceDataRepository
+from trading_system.services.reference_lookup_service import ReferenceLookupService
 
 app = typer.Typer(help="Structured discretionary trading system.")
 ListSortOrder = Literal["oldest", "newest"]
@@ -226,13 +231,29 @@ def demo_planned_trade() -> None:
 
 @app.command("create-trade-idea")
 def create_trade_idea(
-    instrument_id: str = typer.Option(..., "--instrument-id"),
-    playbook_id: str = typer.Option(..., "--playbook-id"),
+    instrument_id: str | None = typer.Option(None, "--instrument-id"),
+    symbol: str | None = typer.Option(None, "--symbol"),
+    playbook_id: str | None = typer.Option(None, "--playbook-id"),
+    playbook_slug: str | None = typer.Option(None, "--playbook-slug"),
     purpose: str = typer.Option(..., "--purpose"),
     direction: str = typer.Option(..., "--direction"),
     horizon: str = typer.Option(..., "--horizon"),
 ) -> None:
     """Create and persist a trade idea."""
+    if instrument_id is None and symbol is None:
+        typer.echo("Error: provide --instrument-id or --symbol.", err=True)
+        raise typer.Exit(code=1)
+    if playbook_id is None and playbook_slug is None:
+        typer.echo("Error: provide --playbook-id or --playbook-slug.", err=True)
+        raise typer.Exit(code=1)
+    resolved_instrument_id = (
+        _parse_uuid(instrument_id) if instrument_id is not None
+        else _resolve_instrument_id(symbol)
+    )
+    resolved_playbook_id = (
+        _parse_uuid(playbook_id) if playbook_id is not None
+        else _resolve_playbook_id(playbook_slug)
+    )
     repositories = _repositories()
     planning = TradePlanningService(
         repositories.ideas,
@@ -241,8 +262,8 @@ def create_trade_idea(
     )
     idea = _run_service(
         lambda: planning.create_trade_idea(
-            instrument_id=_parse_uuid(instrument_id),
-            playbook_id=_parse_uuid(playbook_id),
+            instrument_id=resolved_instrument_id,
+            playbook_id=resolved_playbook_id,
             purpose=purpose,
             direction=direction,
             horizon=horizon,
@@ -1200,6 +1221,13 @@ def fetch_market_data(
     repositories = _repositories()
     start_date = _parse_iso_date(start)
     end_date = _parse_iso_date(end)
+    resolved_instrument_id: UUID | None
+    if instrument_id is not None:
+        resolved_instrument_id = _parse_uuid(instrument_id)
+    elif target_type is None:
+        resolved_instrument_id = _resolve_instrument_id(symbol)
+    else:
+        resolved_instrument_id = None
     snapshot = _run_service(
         lambda: _fetch_market_data_snapshot(
             repositories=repositories,
@@ -1207,7 +1235,7 @@ def fetch_market_data(
             symbol=symbol,
             start=start_date,
             end=end_date,
-            instrument_id=None if instrument_id is None else _parse_uuid(instrument_id),
+            instrument_id=resolved_instrument_id,
             target_type=None if target_type is None else _context_target_type(target_type),
             target_id=None if target_id is None else _parse_uuid(target_id),
         )
@@ -1425,6 +1453,24 @@ def _fetch_market_data_snapshot(
         target_type=target_type,
         target_id=target_id,
     )
+
+
+def _resolve_instrument_id(symbol: str) -> UUID:
+    """Resolve a ticker symbol to a seeded instrument UUID."""
+    try:
+        return ReferenceLookupService(SeededReferenceDataRepository()).resolve_instrument(symbol).id
+    except ValueError:
+        typer.echo(f"Error: unknown instrument symbol '{symbol}'. Use --instrument-id to specify by UUID.", err=True)
+        raise typer.Exit(code=1)
+
+
+def _resolve_playbook_id(slug: str) -> UUID:
+    """Resolve a playbook slug to a seeded playbook UUID."""
+    try:
+        return ReferenceLookupService(SeededReferenceDataRepository()).resolve_playbook(slug).id
+    except ValueError:
+        typer.echo(f"Error: unknown playbook slug '{slug}'. Use --playbook-id to specify by UUID.", err=True)
+        raise typer.Exit(code=1)
 
 
 def _parse_uuid(value: str) -> UUID:

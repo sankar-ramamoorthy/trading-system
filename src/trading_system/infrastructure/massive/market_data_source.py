@@ -162,6 +162,4 @@ def _number(value: Any, field: str) -> float:
 
 def _integer(value: Any, field: str) -> int:
     numeric = _number(value, field)
-    if not numeric.is_integer():
-        raise ValueError(f"Massive.com daily bar contains a non-integer {field} value.")
-    return int(numeric)
+    return int(round(numeric))
