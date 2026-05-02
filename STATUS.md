@@ -43,6 +43,7 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - Trade-capture draft contracts with missing and ambiguous field reporting
 - LiteLLM-backed trade-capture parser boundary with fake parser for tests
 - FastAPI trade-capture parse, save, and saved-result retrieval endpoints
+- React/Vite trade-capture workspace for parse, edit, save, and saved-result display
 
 ## Active Constraints
 
@@ -241,9 +242,23 @@ Validation recorded on 2026-05-02:
 - 39 focused trade-capture/reference/API tests passed
 - 216 full-suite tests passed
 
+## Completed Slice (Milestone 7F)
+
+Milestone 7F is the React/Vite trade-capture workspace.
+
+This slice replaces the frontend runtime shell with the first browser workflow for raw trade-language input, parse action, editable Idea/Thesis/Plan draft sections, missing and ambiguous field indicators, explicit save, and saved-result summary.
+
+Milestone 7F intentionally does not add approval, rule evaluation, order intent creation, position opening, fill recording, broker integration, generated recommendations, claim verification, API key vault behavior, production auth, cloud deployment, or Postgres migration.
+
+Validation recorded on 2026-05-02:
+
+- frontend production build passed
+- 13 focused trade-capture/API tests passed
+- 216 full-suite tests passed
+
 ## Next Slice
 
-Milestone 7F: React/Vite Trade Capture Workspace.
+Milestone 7G: End-to-End Save Workflow.
 
 ## Immediate Design Guardrails
 
@@ -272,6 +287,7 @@ Authoritative documents for implementation:
 - `DOCS/milestone-7c-trade-capture-draft-contract.md`
 - `DOCS/milestone-7d-natural-language-parser-boundary.md`
 - `DOCS/milestone-7e-fastapi-trade-capture-service.md`
+- `DOCS/milestone-7f-react-trade-capture-workspace.md`
 
 The domain model remains the canonical source of truth for entities and relationships.
 

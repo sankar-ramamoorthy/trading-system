@@ -90,6 +90,7 @@ See:
 - `DOCS/milestone-7c-trade-capture-draft-contract.md`
 - `DOCS/milestone-7d-natural-language-parser-boundary.md`
 - `DOCS/milestone-7e-fastapi-trade-capture-service.md`
+- `DOCS/milestone-7f-react-trade-capture-workspace.md`
 
 ---
 
@@ -368,7 +369,7 @@ Check the API directly:
 http://localhost:8000/health
 ```
 
-This web shell does not implement the capture workspace yet. Backend trade-capture endpoints now exist for later UI work, but the React parse/edit/save screen is planned for a later Milestone 7 issue.
+The web app now opens to the local trade-capture workspace. It supports raw trader-language input, parsing into editable Idea/Thesis/Plan drafts, explicit save, and a saved-result summary.
 
 Host Ollama is expected at:
 
@@ -396,6 +397,8 @@ GET  http://localhost:8000/trade-capture/saved/<trade-plan-id>
 ```
 
 `parse` returns an editable draft and validation issues without persistence. `save` accepts a confirmed draft and creates linked `TradeIdea`, `TradeThesis`, and `TradePlan` records only. It does not approve plans, evaluate rules, create order intents, open positions, record fills, verify thesis claims, or make recommendations.
+
+The browser workspace uses these endpoints directly. API keys are not collected, stored, or displayed in the frontend.
 
 ### Reference Lookup API
 

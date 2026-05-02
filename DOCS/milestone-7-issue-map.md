@@ -52,6 +52,8 @@ Status: complete.
 
 Build the focused capture screen with raw trader-language input, parse action, editable Idea/Thesis/Plan sections, missing-field indicators, explicit save, and saved result summary.
 
+Status: complete.
+
 ### 7G: End-to-End Save Workflow
 
 Wire parse, edit, and save through local JSON persistence so explicit save creates linked `TradeIdea`, `TradeThesis`, and `TradePlan` records.
