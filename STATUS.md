@@ -290,9 +290,25 @@ Validation recorded on 2026-05-02:
 - `docker compose up --build`: api and web containers healthy
 - `curl http://localhost:8000/health`: `{"status": "ok"}`
 
+## Completed Slice (Milestone 8)
+
+Milestone 8 is Options Chain Ingestion.
+
+This slice adds `YFinanceOptionsChainImportSource` and `MassiveOptionsChainImportSource` behind a new `create_options_chain_source()` registry method, and a `fetch-options-chain` CLI command. Options chains are stored as `context_type: options_chain` MarketContextSnapshots and are linkable to plans, positions, or reviews.
+
+Also in this slice: `load_dotenv()` added to the CLI so `.env` API keys work for `uv run` commands without Docker; `fetch-market-data` and `create-trade-idea` now accept ticker symbols instead of requiring raw UUIDs; Massive.com daily bar volume parsing hardened to use `round()`.
+
+Note: Massive.com options data requires a paid plan. The adapter is implemented; live execution returns a clear upgrade message on the free tier.
+
+Validation recorded on 2026-05-02:
+
+- `uv run trading-system fetch-options-chain AAPL --expiry 2026-05-22 --provider yfinance`: snapshot stored with full calls and puts
+- `uv run trading-system fetch-market-data AAPL --provider massive --start 2026-04-01 --end 2026-04-30`: daily OHLCV stored
+- `uv run pytest`: 233 passed
+
 ## Next Slice
 
-Milestone 8 direction is outcome-level. See `DOCS/product-roadmap.md`.
+Milestone 9: Web Product Beyond First Capture. See `DOCS/product-roadmap.md`.
 
 ## Immediate Design Guardrails
 

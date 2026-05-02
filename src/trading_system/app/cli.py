@@ -1243,6 +1243,49 @@ def fetch_market_data(
     _echo_context_snapshot_result(snapshot)
 
 
+@app.command("fetch-options-chain")
+def fetch_options_chain(
+    symbol: str = typer.Argument(...),
+    expiry: str = typer.Option(..., "--expiry"),
+    provider: str = typer.Option("yfinance", "--provider"),
+    instrument_id: str | None = typer.Option(None, "--instrument-id"),
+    target_type: ContextTargetOption | None = typer.Option(None, "--target-type"),
+    target_id: str | None = typer.Option(None, "--target-id"),
+) -> None:
+    """Fetch a read-only options chain snapshot for one expiration date."""
+    repositories = _repositories()
+    expiration = _parse_iso_date(expiry)
+    resolved_instrument_id: UUID | None
+    if instrument_id is not None:
+        resolved_instrument_id = _parse_uuid(instrument_id)
+    elif target_type is None:
+        resolved_instrument_id = _resolve_instrument_id(symbol)
+    else:
+        resolved_instrument_id = None
+    selection = MarketDataProviderRegistry().create_options_chain_source(
+        provider=provider,
+        symbol=symbol,
+        expiration=expiration,
+    )
+    snapshot = _run_service(
+        lambda: MarketContextImportService(
+            snapshot_repository=repositories.market_context_snapshots,
+            plan_repository=repositories.plans,
+            position_repository=repositories.positions,
+            review_repository=repositories.reviews,
+            idea_repository=repositories.ideas,
+        ).import_context(
+            selection.source_adapter,
+            source=selection.source,
+            source_ref=selection.source_ref,
+            instrument_id=resolved_instrument_id,
+            target_type=None if target_type is None else _context_target_type(target_type),
+            target_id=None if target_id is None else _parse_uuid(target_id),
+        )
+    )
+    _echo_context_snapshot_result(snapshot)
+
+
 @app.command("copy-context")
 def copy_context(
     snapshot_id: str,

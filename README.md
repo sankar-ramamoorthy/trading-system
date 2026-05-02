@@ -224,6 +224,26 @@ uv run trading-system show-context <market-context-snapshot-id>
 
 Linked snapshots also appear as metadata-only `Market context` sections in `show-trade-plan`, `show-position`, and `show-trade-review`. Use `show-context` when you need to inspect the full stored payload. `copy-context` creates a new linked snapshot from an existing one; it does not mutate the original import.
 
+### Options Chain Data
+
+Milestone 8 adds options chain snapshots stored as `context_type: options_chain`:
+
+```powershell
+# List available expirations first (check yfinance directly)
+# Then fetch the chain for a specific expiry
+uv run trading-system fetch-options-chain AAPL --expiry 2026-05-22 --provider yfinance
+uv run trading-system fetch-options-chain AAPL --expiry 2026-05-22 --provider massive
+
+# Link to a plan for context
+uv run trading-system fetch-options-chain NVDA --expiry 2026-05-22 --provider yfinance --target-type trade-plan --target-id <plan-id>
+
+# Inspect the stored chain
+uv run trading-system show-context <snapshot-id>
+uv run trading-system list-context --context-type options_chain --source yfinance
+```
+
+Each contract in the snapshot includes: strike, contract type, bid, ask, last price, volume, open interest, and implied volatility. Massive.com also returns greeks (delta, gamma, theta, vega) where available on paid plans.
+
 ADR-007 and ADR-009 define the Milestone 6 provider boundary. Milestone 6 is complete: `fetch-market-data` stores provider-backed daily OHLCV snapshots as explicit `MarketContextSnapshot` records. `yfinance` remains the default provider; `--provider yfinance` and `--provider massive` are both accepted explicitly. Massive.com fetches require `MASSIVE_API_KEY`. External data remains read-only, advisory, and non-canonical.
 
 ## Review Tags
