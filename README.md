@@ -88,6 +88,7 @@ See:
 - `DOCS/milestone-7a-runtime-skeleton.md`
 - `DOCS/milestone-7b-reference-lookup-foundation.md`
 - `DOCS/milestone-7c-trade-capture-draft-contract.md`
+- `DOCS/milestone-7d-natural-language-parser-boundary.md`
 
 ---
 
@@ -366,13 +367,22 @@ Check the API directly:
 http://localhost:8000/health
 ```
 
-This web shell does not implement trade capture yet. Draft contracts now exist for later parser/API/UI work, but parser behavior, trade-capture endpoints, and save workflow are planned for later Milestone 7 issues.
+This web shell does not implement trade capture yet. Draft contracts and the parser boundary now exist for later API/UI work, but trade-capture endpoints and save workflow are planned for later Milestone 7 issues.
 
 Host Ollama is expected at:
 
 ```text
 http://host.docker.internal:11434
 ```
+
+For native API runs outside Docker, set:
+
+```powershell
+$env:TRADING_SYSTEM_LLM_MODEL="ollama_chat/llama3.1"
+$env:TRADING_SYSTEM_LLM_API_BASE="http://localhost:11434"
+```
+
+The parser boundary extracts user-authored trade-capture text into editable drafts. It must not suggest trades, invent missing levels, verify claims, approve plans, create order intents, open positions, or record fills.
 
 ### Reference Lookup API
 

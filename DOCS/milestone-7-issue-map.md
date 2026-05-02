@@ -38,6 +38,8 @@ Add the LLM-first parser boundary through LiteLLM, with host Ollama as the first
 
 The parser extracts only user-authored content. It must not suggest trades, invent missing levels, verify claims, approve plans, create order intents, open positions, or record fills.
 
+Status: complete.
+
 ### 7E: FastAPI Trade Capture Service
 
 Expose lookup, parse, save, and saved-result retrieval through FastAPI over existing services and repositories.
