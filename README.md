@@ -87,6 +87,10 @@ See:
 - `DOCS/milestone-7-issue-map.md`
 - `DOCS/milestone-7a-runtime-skeleton.md`
 - `DOCS/milestone-7b-reference-lookup-foundation.md`
+- `DOCS/milestone-7c-trade-capture-draft-contract.md`
+- `DOCS/milestone-7d-natural-language-parser-boundary.md`
+- `DOCS/milestone-7e-fastapi-trade-capture-service.md`
+- `DOCS/milestone-7f-react-trade-capture-workspace.md`
 
 ---
 
@@ -365,13 +369,36 @@ Check the API directly:
 http://localhost:8000/health
 ```
 
-This web shell does not implement trade capture yet. Parser behavior, draft contracts, and save workflow are planned for later Milestone 7 issues.
+The web app now opens to the local trade-capture workspace. It supports raw trader-language input, parsing into editable Idea/Thesis/Plan drafts, explicit save, and a saved-result summary.
 
 Host Ollama is expected at:
 
 ```text
 http://host.docker.internal:11434
 ```
+
+For native API runs outside Docker, set:
+
+```powershell
+$env:TRADING_SYSTEM_LLM_MODEL="ollama_chat/llama3.1"
+$env:TRADING_SYSTEM_LLM_API_BASE="http://localhost:11434"
+```
+
+The parser boundary extracts user-authored trade-capture text into editable drafts. It must not suggest trades, invent missing levels, verify claims, approve plans, create order intents, open positions, or record fills.
+
+### Trade Capture API
+
+Milestone 7E adds backend API endpoints for trade capture:
+
+```text
+POST http://localhost:8000/trade-capture/parse
+POST http://localhost:8000/trade-capture/save
+GET  http://localhost:8000/trade-capture/saved/<trade-plan-id>
+```
+
+`parse` returns an editable draft and validation issues without persistence. `save` accepts a confirmed draft and creates linked `TradeIdea`, `TradeThesis`, and `TradePlan` records only. It does not approve plans, evaluate rules, create order intents, open positions, record fills, verify thesis claims, or make recommendations.
+
+The browser workspace uses these endpoints directly. API keys are not collected, stored, or displayed in the frontend.
 
 ### Reference Lookup API
 

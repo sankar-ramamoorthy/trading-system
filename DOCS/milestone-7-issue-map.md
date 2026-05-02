@@ -30,11 +30,15 @@ Status: complete.
 
 Define editable draft contracts for `TradeIdea`, `TradeThesis`, and `TradePlan`, including required fields, optional fields, and missing or ambiguous field reporting.
 
+Status: complete.
+
 ### 7D: Natural-Language Parser Boundary
 
 Add the LLM-first parser boundary through LiteLLM, with host Ollama as the first local runtime.
 
 The parser extracts only user-authored content. It must not suggest trades, invent missing levels, verify claims, approve plans, create order intents, open positions, or record fills.
+
+Status: complete.
 
 ### 7E: FastAPI Trade Capture Service
 
@@ -42,9 +46,13 @@ Expose lookup, parse, save, and saved-result retrieval through FastAPI over exis
 
 The API must not shell out to the CLI.
 
+Status: complete.
+
 ### 7F: React/Vite Trade Capture Workspace
 
 Build the focused capture screen with raw trader-language input, parse action, editable Idea/Thesis/Plan sections, missing-field indicators, explicit save, and saved result summary.
+
+Status: complete.
 
 ### 7G: End-to-End Save Workflow
 
