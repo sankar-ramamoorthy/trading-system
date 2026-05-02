@@ -46,6 +46,8 @@ Expose lookup, parse, save, and saved-result retrieval through FastAPI over exis
 
 The API must not shell out to the CLI.
 
+Status: complete.
+
 ### 7F: React/Vite Trade Capture Workspace
 
 Build the focused capture screen with raw trader-language input, parse action, editable Idea/Thesis/Plan sections, missing-field indicators, explicit save, and saved result summary.

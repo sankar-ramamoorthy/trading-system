@@ -89,6 +89,7 @@ See:
 - `DOCS/milestone-7b-reference-lookup-foundation.md`
 - `DOCS/milestone-7c-trade-capture-draft-contract.md`
 - `DOCS/milestone-7d-natural-language-parser-boundary.md`
+- `DOCS/milestone-7e-fastapi-trade-capture-service.md`
 
 ---
 
@@ -367,7 +368,7 @@ Check the API directly:
 http://localhost:8000/health
 ```
 
-This web shell does not implement trade capture yet. Draft contracts and the parser boundary now exist for later API/UI work, but trade-capture endpoints and save workflow are planned for later Milestone 7 issues.
+This web shell does not implement the capture workspace yet. Backend trade-capture endpoints now exist for later UI work, but the React parse/edit/save screen is planned for a later Milestone 7 issue.
 
 Host Ollama is expected at:
 
@@ -383,6 +384,18 @@ $env:TRADING_SYSTEM_LLM_API_BASE="http://localhost:11434"
 ```
 
 The parser boundary extracts user-authored trade-capture text into editable drafts. It must not suggest trades, invent missing levels, verify claims, approve plans, create order intents, open positions, or record fills.
+
+### Trade Capture API
+
+Milestone 7E adds backend API endpoints for trade capture:
+
+```text
+POST http://localhost:8000/trade-capture/parse
+POST http://localhost:8000/trade-capture/save
+GET  http://localhost:8000/trade-capture/saved/<trade-plan-id>
+```
+
+`parse` returns an editable draft and validation issues without persistence. `save` accepts a confirmed draft and creates linked `TradeIdea`, `TradeThesis`, and `TradePlan` records only. It does not approve plans, evaluate rules, create order intents, open positions, record fills, verify thesis claims, or make recommendations.
 
 ### Reference Lookup API
 

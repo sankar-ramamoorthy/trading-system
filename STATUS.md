@@ -42,6 +42,7 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - FastAPI reference endpoints for instruments and playbooks
 - Trade-capture draft contracts with missing and ambiguous field reporting
 - LiteLLM-backed trade-capture parser boundary with fake parser for tests
+- FastAPI trade-capture parse, save, and saved-result retrieval endpoints
 
 ## Active Constraints
 
@@ -226,9 +227,23 @@ Validation recorded on 2026-05-02:
 - 30 focused trade-capture/reference/API tests passed
 - 207 full-suite tests passed
 
+## Completed Slice (Milestone 7E)
+
+Milestone 7E is the FastAPI trade-capture service for the future web workspace.
+
+This slice adds backend schemas, a `TradeCaptureService`, `POST /trade-capture/parse`, `POST /trade-capture/save`, and `GET /trade-capture/saved/{trade_plan_id}`. The API parses into editable drafts without persistence, saves confirmed drafts into linked `TradeIdea`, `TradeThesis`, and `TradePlan` records, and retrieves compact saved-result summaries.
+
+Milestone 7E intentionally does not add the React capture workspace, browser-backed end-to-end workflow, approval, rule evaluation, order intents, positions, fills, broker integration, recommendations, claim verification, production auth, cloud deployment, or Postgres migration.
+
+Validation recorded on 2026-05-02:
+
+- 31 focused trade-capture API/parser/draft tests passed
+- 39 focused trade-capture/reference/API tests passed
+- 216 full-suite tests passed
+
 ## Next Slice
 
-Milestone 7E: FastAPI Trade Capture Service.
+Milestone 7F: React/Vite Trade Capture Workspace.
 
 ## Immediate Design Guardrails
 
@@ -256,6 +271,7 @@ Authoritative documents for implementation:
 - `DOCS/milestone-7b-reference-lookup-foundation.md`
 - `DOCS/milestone-7c-trade-capture-draft-contract.md`
 - `DOCS/milestone-7d-natural-language-parser-boundary.md`
+- `DOCS/milestone-7e-fastapi-trade-capture-service.md`
 
 The domain model remains the canonical source of truth for entities and relationships.
 
