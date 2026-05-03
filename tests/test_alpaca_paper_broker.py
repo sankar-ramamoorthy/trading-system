@@ -125,6 +125,48 @@ def test_alpaca_sync_rejects_simulated_fill_price() -> None:
         )
 
 
+def test_alpaca_lists_order_snapshots_with_all_status_request() -> None:
+    """Alpaca remote orders are mapped to provider-neutral snapshots."""
+    now = datetime(2026, 5, 3, tzinfo=UTC)
+    fake_client = _FakeTradingClient(
+        listed_orders=[
+            SimpleNamespace(
+                id="alpaca-order-1",
+                status="filled",
+                updated_at=now,
+                symbol="AAPL",
+                side="buy",
+                qty="100",
+                filled_avg_price="25.75",
+            ),
+            SimpleNamespace(
+                id="alpaca-order-2",
+                status="canceled",
+                updated_at=now,
+                symbol="MSFT",
+                side="sell",
+                qty="5",
+                filled_avg_price=None,
+            ),
+        ]
+    )
+
+    snapshots = AlpacaPaperBrokerClient(
+        trading_client=fake_client
+    ).list_order_snapshots()
+
+    assert fake_client.list_requests[0].__class__.__name__ == "GetOrdersRequest"
+    assert str(fake_client.list_requests[0].status.value) == "all"
+    assert snapshots[0].provider == "alpaca"
+    assert snapshots[0].provider_order_id == "alpaca-order-1"
+    assert snapshots[0].status == BrokerOrderStatus.FILLED
+    assert snapshots[0].symbol == "AAPL"
+    assert snapshots[0].side == OrderSide.BUY
+    assert snapshots[0].quantity == Decimal("100")
+    assert snapshots[0].fill_price == Decimal("25.75")
+    assert snapshots[1].status == BrokerOrderStatus.CANCELED
+
+
 def test_alpaca_client_resolves_required_credentials(monkeypatch, tmp_path) -> None:
     """The adapter requires the reserved Alpaca secret names."""
     import trading_system.infrastructure.local_secret_vault as secret_vault
@@ -143,6 +185,7 @@ class _FakeTradingClient:
         *,
         submitted_order=None,
         synced_order=None,
+        listed_orders=None,
     ) -> None:
         now = datetime(2026, 5, 3, tzinfo=UTC)
         self.submitted_order = submitted_order or SimpleNamespace(
@@ -157,7 +200,9 @@ class _FakeTradingClient:
             updated_at=now,
             filled_avg_price="25.50",
         )
+        self.listed_orders = listed_orders or []
         self.submitted_requests = []
+        self.list_requests = []
 
     def submit_order(self, *, order_data):
         self.submitted_requests.append(order_data)
@@ -166,6 +211,10 @@ class _FakeTradingClient:
     def get_order_by_id(self, order_id):
         assert order_id == "alpaca-order-1"
         return self.synced_order
+
+    def get_orders(self, *, filter):
+        self.list_requests.append(filter)
+        return self.listed_orders
 
 
 def _order_intent(

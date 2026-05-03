@@ -241,13 +241,34 @@ Non-goals:
 - browser execution controls
 - broker positions becoming canonical local positions
 
-### Milestones 14 Through 16: Reconciliation, Visibility, And Browser Controls
+### Milestone 14: Broker Reconciliation And Status Sync
+
+Status: complete. See `DOCS/milestone-14-issue-map.md`.
+
+Milestone 14 adds CLI-only broker reconciliation after the Alpaca paper adapter.
+
+Completed direction:
+
+- broker order snapshots behind the existing broker port
+- Alpaca remote order listing without leaking provider objects outside infrastructure
+- batch sync of submitted local broker orders
+- reconciliation reporting for matched, updated, missing-remote, broker-only, status-mismatch, and fill-mismatch records
+- mismatch audit events without redefining local trade meaning
+
+Non-goals:
+
+- real-money execution
+- FastAPI or React broker controls
+- broker-only remote order import
+- broker positions becoming canonical local positions
+- scheduled sync, polling, streaming, webhooks, or background jobs
+
+### Milestones 15 And 16: Visibility And Browser Controls
 
 Status: future planned direction.
 
-After Alpaca paper integration exists, the recommended sequence is:
+After broker reconciliation exists, the recommended sequence is:
 
-- Milestone 14: broker reconciliation and status sync
 - Milestone 15: read-only API/web broker visibility
 - Milestone 16: human-controlled browser paper execution controls
 

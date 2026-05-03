@@ -2,7 +2,7 @@
 
 ## Current Milestone
 
-Milestones 1 through 13 are complete. Milestone 13 added Alpaca paper trading behind the existing broker port through core services and CLI commands only.
+Milestones 1 through 14 are complete. Milestone 14 added CLI-only broker reconciliation and status sync after the Alpaca paper adapter.
 
 ## Implementation State
 
@@ -19,8 +19,9 @@ Milestones 1 through 13 are complete. Milestone 13 added Alpaca paper trading be
 - Milestone 11: complete (broker boundary and simulated paper execution)
 - Milestone 12: complete (paper execution hardening)
 - Milestone 13: complete (Alpaca paper adapter)
+- Milestone 14: complete (broker reconciliation and status sync)
 
-The system is currently a functional local trading workflow with CLI and web entry points, local JSON persistence, lifecycle tracking, review/export support, local JSON operations, read-only context snapshots, API-first trade capture, options chain ingestion, browser-based plan inspection, approval, context attachment, CLI-only simulated paper broker execution, and CLI-only Alpaca paper trading.
+The system is currently a functional local trading workflow with CLI and web entry points, local JSON persistence, lifecycle tracking, review/export support, local JSON operations, read-only context snapshots, API-first trade capture, options chain ingestion, browser-based plan inspection, approval, context attachment, CLI-only simulated paper broker execution, CLI-only Alpaca paper trading, and CLI-only broker reconciliation.
 
 ## Available Capabilities
 
@@ -70,6 +71,10 @@ The system is currently a functional local trading workflow with CLI and web ent
 - Vault-first, environment-fallback resolution for `ALPACA_API_KEY` and `ALPACA_SECRET_KEY`
 - CLI Alpaca paper submission through `submit-paper-order --provider alpaca`
 - CLI Alpaca paper sync through `sync-paper-order` without simulated fill prices
+- Alpaca broker order snapshot listing behind the broker port
+- CLI batch sync for submitted broker orders through `sync-broker-orders --provider alpaca`
+- CLI broker reconciliation through `reconcile-broker-orders --provider alpaca`
+- Broker reconciliation mismatch audit events without redefining local trade meaning
 
 ## Active Constraints
 

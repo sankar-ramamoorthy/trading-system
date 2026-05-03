@@ -8,8 +8,13 @@ from uuid import uuid4
 from typer.testing import CliRunner
 
 from trading_system.domain.trading.broker_order import BrokerOrderStatus
+from trading_system.domain.trading.order_intent import OrderSide
 from trading_system.app.cli import app
-from trading_system.ports.broker import BrokerOrderSync, BrokerSubmission
+from trading_system.ports.broker import (
+    BrokerOrderSnapshot,
+    BrokerOrderSync,
+    BrokerSubmission,
+)
 
 
 runner = CliRunner()
@@ -615,6 +620,61 @@ def test_alpaca_paper_order_cli_submit_and_sync_without_simulated_price(
     assert "source: broker:alpaca" in sync.output
 
 
+def test_broker_reconciliation_cli_commands_for_alpaca(tmp_path, monkeypatch) -> None:
+    """Alpaca sync and reconcile commands use fake broker clients in CLI tests."""
+    import trading_system.app.cli as cli
+
+    monkeypatch.setattr(
+        cli,
+        "AlpacaPaperBrokerClient",
+        _FakeAlpacaPaperBrokerClient,
+    )
+    store_path = tmp_path / "store.json"
+    plan_id = _seed_approved_and_evaluated_plan(store_path)
+    position_id = _open_position(store_path, plan_id)
+    order_intent_id = _create_order_intent(store_path, plan_id)
+    submit = runner.invoke(
+        app,
+        [
+            "submit-paper-order",
+            order_intent_id,
+            "--position-id",
+            position_id,
+            "--provider",
+            "alpaca",
+        ],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+    broker_order_id = _field(submit.output, "broker_order_id")
+
+    sync = runner.invoke(
+        app,
+        ["sync-broker-orders", "--provider", "alpaca"],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert sync.exit_code == 0
+    assert "provider: alpaca" in sync.output
+    assert "synced_count: 1" in sync.output
+    assert broker_order_id in sync.output
+    assert "submitted | filled | true |" in sync.output
+
+    reconcile = runner.invoke(
+        app,
+        ["reconcile-broker-orders", "--provider", "alpaca"],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert reconcile.exit_code == 0
+    assert "provider: alpaca" in reconcile.output
+    assert "matched: 1" in reconcile.output
+    assert "updated: 0" in reconcile.output
+    assert "missing_remote: 0" in reconcile.output
+    assert "broker_only: 1" in reconcile.output
+    assert "status_mismatch: 0" in reconcile.output
+    assert "fill_mismatch: 0" in reconcile.output
+
+
 def test_broker_order_list_cancel_and_reject_commands(tmp_path) -> None:
     """Broker-order CLI commands expose filters and simulated terminal outcomes."""
     store_path = tmp_path / "store.json"
@@ -1044,6 +1104,30 @@ class _FakeAlpacaPaperBrokerClient:
             updated_at=datetime(2026, 5, 3, tzinfo=UTC),
             fill_price=Decimal("25.50"),
         )
+
+    def list_order_snapshots(self):
+        timestamp = datetime(2026, 5, 3, tzinfo=UTC)
+        return [
+            BrokerOrderSnapshot(
+                provider=self.provider,
+                provider_order_id="alpaca-test-order",
+                status=BrokerOrderStatus.FILLED,
+                updated_at=timestamp,
+                symbol="AAPL",
+                side=OrderSide.BUY,
+                quantity=Decimal("100"),
+                fill_price=Decimal("25.50"),
+            ),
+            BrokerOrderSnapshot(
+                provider=self.provider,
+                provider_order_id="broker-only-order",
+                status=BrokerOrderStatus.SUBMITTED,
+                updated_at=timestamp,
+                symbol="MSFT",
+                side=OrderSide.BUY,
+                quantity=Decimal("5"),
+            ),
+        ]
 
 
 def _field(output: str, name: str) -> str:
