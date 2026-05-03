@@ -2,7 +2,7 @@
 
 ## Current Milestone
 
-Milestone 7 has started. The accepted direction is ADR-008 API-first web product and trade-capture draft workflow.
+Milestones 1 through 10 are complete. Milestone 11 Broker Boundary and Paper Trading is the next planned slice.
 
 ## Implementation State
 
@@ -12,8 +12,12 @@ Milestone 7 has started. The accepted direction is ADR-008 API-first web product
 - Milestone 4: complete (read-only market context)
 - Milestone 5: complete (review, learning, and local operations)
 - Milestone 6: complete (read-only market data provider integration)
+- Milestone 7: complete (API-first trade capture workspace)
+- Milestone 8: complete (options chain ingestion)
+- Milestone 9: complete (web product beyond first capture)
+- Milestone 10: complete (secure credentials)
 
-The system is currently a functional, CLI-driven, manual trading workflow with local JSON persistence, lifecycle tracking, review/export support, local JSON operations, and read-only context snapshots.
+The system is currently a functional local trading workflow with CLI and web entry points, local JSON persistence, lifecycle tracking, review/export support, local JSON operations, read-only context snapshots, API-first trade capture, options chain ingestion, and browser-based plan inspection, approval, and context attachment.
 
 ## Available Capabilities
 
@@ -35,6 +39,7 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - Broad `list-context` discovery filters for context type, source, observed range, and captured range
 - `copy-context` workflow for copying an existing snapshot to a trade plan, position, or trade review target without mutating the original
 - `fetch-market-data` fetches read-only daily OHLCV snapshots from yfinance or Massive.com
+- `fetch-options-chain` fetches read-only options chain snapshots from yfinance or Massive.com
 - FastAPI runtime skeleton with `GET /health`
 - Vite React TypeScript frontend shell for the local web product
 - Docker Compose runtime skeleton for backend and frontend containers
@@ -44,6 +49,14 @@ The system is currently a functional, CLI-driven, manual trading workflow with l
 - LiteLLM-backed trade-capture parser boundary with fake parser for tests
 - FastAPI trade-capture parse, save, and saved-result retrieval endpoints
 - React/Vite trade-capture workspace for parse, edit, save, and saved-result display
+- FastAPI plan list, plan detail, and plan approval endpoints
+- FastAPI market-context metadata listing and copy-to-plan attachment endpoint
+- React/Vite workbench navigation for Capture, Plans, and Context
+- Browser plan list filtering, plan detail inspection, draft approval, and context attachment
+- Accepted local secret vault ADR for CLI credential storage
+- Encrypted local secret vault with OS keychain-backed master key
+- CLI secret commands: `set-secret`, `list-secrets`, `delete-secret`, `rotate-master-key`
+- Vault-first, environment-fallback resolution for Massive.com provider API keys
 
 ## Active Constraints
 
@@ -256,9 +269,103 @@ Validation recorded on 2026-05-02:
 - 13 focused trade-capture/API tests passed
 - 216 full-suite tests passed
 
+## Completed Slice (Milestone 7G)
+
+Milestone 7G is the end-to-end save workflow acceptance slice.
+
+This slice validates the full parse→edit→save→persist workflow through Docker and the live API. No new domain features were added. Changes made during acceptance:
+
+- Switched LLM provider from Ollama to Groq (`groq/qwen/qwen3-32b`) via `.env` and `TRADING_SYSTEM_LLM_API_BASE`
+- Added `env_file` support to `docker-compose.yml` so secrets in `.env` reach the api container
+- Hardened `_string_list` in the LiteLLM parser to coerce a bare string to a single-element list
+- Hardened `_ambiguous_issue` candidates to coerce non-string types rather than raise
+
+Validation recorded on 2026-05-02:
+
+- `docker compose up --build`: api and web containers healthy
+- `POST /trade-capture/parse`: correctly extracts fields and surfaces validation issues
+- `POST /trade-capture/save`: creates linked `TradeIdea`, `TradeThesis`, `TradePlan` records
+- `GET /trade-capture/saved/{trade_plan_id}`: retrieves saved result summary
+- Local JSON store confirmed to contain all three linked records with `approval_state: draft`
+- All error states verified: empty input, missing required fields, ambiguous fields, unknown symbol, unknown plan ID
+- `uv run pytest`: 216 passed
+
+## Completed Slice (Milestone 7H)
+
+Milestone 7H is the Milestone 7 closeout.
+
+This slice produces the milestone closeout document, adds the web interface section to the README, records final validation results, and updates the knowledge base. No new domain features were added.
+
+Validation recorded on 2026-05-02:
+
+- `uv run pytest`: 216 passed
+- `npm.cmd run build`: passed
+- `docker compose up --build`: api and web containers healthy
+- `curl http://localhost:8000/health`: `{"status": "ok"}`
+
+## Completed Slice (Milestone 8)
+
+Milestone 8 is Options Chain Ingestion.
+
+This slice adds `YFinanceOptionsChainImportSource` and `MassiveOptionsChainImportSource` behind a new `create_options_chain_source()` registry method, and a `fetch-options-chain` CLI command. Options chains are stored as `context_type: options_chain` MarketContextSnapshots and are linkable to plans, positions, or reviews.
+
+Also in this slice: `load_dotenv()` added to the CLI so `.env` API keys work for `uv run` commands without Docker; `fetch-market-data` and `create-trade-idea` now accept ticker symbols instead of requiring raw UUIDs; Massive.com daily bar volume parsing hardened to use `round()`.
+
+Note: Massive.com options data requires a paid plan. The adapter is implemented; live execution returns a clear upgrade message on the free tier.
+
+Validation recorded on 2026-05-02:
+
+- `uv run trading-system fetch-options-chain AAPL --expiry 2026-05-22 --provider yfinance`: snapshot stored with full calls and puts
+- `uv run trading-system fetch-market-data AAPL --provider massive --start 2026-04-01 --end 2026-04-30`: daily OHLCV stored
+- `uv run pytest`: 233 passed
+
+## Completed Slice (Milestone 9)
+
+Milestone 9 is Web Product Beyond First Capture.
+
+This slice extends the local browser product beyond first save. The React/Vite interface now has Capture, Plans, and Context views. Plans is the primary workbench view: saved plans can be filtered by approval state, sorted by created time, inspected with linked idea/thesis/plan detail, approved when still draft, and linked to existing market context snapshots by copying instrument-matching snapshots to the plan.
+
+The FastAPI surface now includes:
+
+- `GET /trade-plans`
+- `GET /trade-plans/{trade_plan_id}`
+- `POST /trade-plans/{trade_plan_id}/approve`
+- `GET /market-context`
+- `POST /market-context/{snapshot_id}/copy-to-target`
+
+Milestone 9 intentionally does not add broker integration, execution, order intent creation, position opening, fill recording, generated recommendations, authentication, key vault behavior, Postgres migration, or rule evaluation before approval.
+
+Validation recorded on 2026-05-03:
+
+- `uv run pytest tests\test_api_trade_capture.py tests\test_api_trade_plans.py`: 15 passed
+- `uv run pytest`: 239 passed
+- `npm.cmd run build`: passed
+- `docker compose up --build -d`: api and web containers started
+- `GET /health`: `{"status":"ok"}`
+
+## Completed Slice (Milestone 10)
+
+Milestone 10 is Secure Credentials.
+
+This slice adds ADR-010, a local encrypted secret vault boundary, CLI secret management commands, and vault-first credential resolution for Massive.com provider API keys. Environment fallback remains supported for Docker, CI, and existing `.env` workflows.
+
+The CLI now supports:
+
+- `set-secret`
+- `list-secrets`
+- `delete-secret`
+- `rotate-master-key`
+
+Milestone 10 intentionally does not add cloud secret management, team/shared vaults, browser secret entry, production authentication or authorization, key synchronization, remote backup, or live broker credentials for real-money execution.
+
+Validation recorded on 2026-05-03:
+
+- `uv run pytest tests\test_local_secret_vault.py tests\test_cli_secrets.py tests\test_massive_market_data_source.py tests\test_massive_options_chain_source.py tests\test_cli_market_data_fetch.py`: 30 passed
+- `uv run pytest`: 246 passed
+
 ## Next Slice
 
-Milestone 7G: End-to-End Save Workflow.
+Milestone 11: Broker Boundary and Paper Trading. See `DOCS/product-roadmap.md`.
 
 ## Immediate Design Guardrails
 
@@ -288,6 +395,9 @@ Authoritative documents for implementation:
 - `DOCS/milestone-7d-natural-language-parser-boundary.md`
 - `DOCS/milestone-7e-fastapi-trade-capture-service.md`
 - `DOCS/milestone-7f-react-trade-capture-workspace.md`
+- `DOCS/milestone-9-issue-map.md`
+- `DOCS/ADR/010-local-secret-vault-boundary.md`
+- `DOCS/milestone-10-issue-map.md`
 
 The domain model remains the canonical source of truth for entities and relationships.
 

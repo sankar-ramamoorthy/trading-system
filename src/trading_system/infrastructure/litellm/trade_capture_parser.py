@@ -209,10 +209,16 @@ def _optional_string(payload: dict[str, Any], field: str) -> str | None:
 
 
 def _string_list(payload: dict[str, Any], field: str) -> list[str]:
-    values = _list_field(payload, field)
-    if not all(isinstance(value, str) for value in values):
+    value = payload.get(field)
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value] if value.strip() else []
+    if not isinstance(value, list):
+        raise TradeCaptureParseError(f"Trade capture parser field '{field}' must be a list.")
+    if not all(isinstance(v, str) for v in value):
         raise TradeCaptureParseError(f"Trade capture parser field '{field}' must contain only strings.")
-    return values
+    return value
 
 
 def _ambiguous_issue(payload: Any) -> DraftFieldIssue:
@@ -228,12 +234,12 @@ def _ambiguous_issue(payload: Any) -> DraftFieldIssue:
         raise TradeCaptureParseError("Trade capture parser ambiguity field is required.")
     if not isinstance(message, str) or not message.strip():
         raise TradeCaptureParseError("Trade capture parser ambiguity message is required.")
-    if candidates is None:
+    if isinstance(candidates, str):
+        candidates = [candidates] if candidates.strip() else []
+    elif candidates is None or not isinstance(candidates, list):
         candidates = []
-    if not isinstance(candidates, list) or not all(
-        isinstance(candidate, str) for candidate in candidates
-    ):
-        raise TradeCaptureParseError("Trade capture parser ambiguity candidates must be strings.")
+    else:
+        candidates = [str(c) for c in candidates if c is not None]
     return DraftFieldIssue(
         entity=entity,
         field=field,

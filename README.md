@@ -91,6 +91,7 @@ See:
 - `DOCS/milestone-7d-natural-language-parser-boundary.md`
 - `DOCS/milestone-7e-fastapi-trade-capture-service.md`
 - `DOCS/milestone-7f-react-trade-capture-workspace.md`
+- `DOCS/milestone-7-closeout.md`
 
 ---
 
@@ -223,7 +224,40 @@ uv run trading-system show-context <market-context-snapshot-id>
 
 Linked snapshots also appear as metadata-only `Market context` sections in `show-trade-plan`, `show-position`, and `show-trade-review`. Use `show-context` when you need to inspect the full stored payload. `copy-context` creates a new linked snapshot from an existing one; it does not mutate the original import.
 
+### Options Chain Data
+
+Milestone 8 adds options chain snapshots stored as `context_type: options_chain`:
+
+```powershell
+# List available expirations first (check yfinance directly)
+# Then fetch the chain for a specific expiry
+uv run trading-system fetch-options-chain AAPL --expiry 2026-05-22 --provider yfinance
+uv run trading-system fetch-options-chain AAPL --expiry 2026-05-22 --provider massive
+
+# Link to a plan for context
+uv run trading-system fetch-options-chain NVDA --expiry 2026-05-22 --provider yfinance --target-type trade-plan --target-id <plan-id>
+
+# Inspect the stored chain
+uv run trading-system show-context <snapshot-id>
+uv run trading-system list-context --context-type options_chain --source yfinance
+```
+
+Each contract in the snapshot includes: strike, contract type, bid, ask, last price, volume, open interest, and implied volatility. Massive.com also returns greeks (delta, gamma, theta, vega) where available on paid plans.
+
 ADR-007 and ADR-009 define the Milestone 6 provider boundary. Milestone 6 is complete: `fetch-market-data` stores provider-backed daily OHLCV snapshots as explicit `MarketContextSnapshot` records. `yfinance` remains the default provider; `--provider yfinance` and `--provider massive` are both accepted explicitly. Massive.com fetches require `MASSIVE_API_KEY`. External data remains read-only, advisory, and non-canonical.
+
+## Local Secrets
+
+Milestone 10 adds a local encrypted secret vault for CLI API keys. The vault stores encrypted secret values in `.trading-system/keys.enc` and keeps the master key in the operating system keychain.
+
+```powershell
+uv run trading-system set-secret MASSIVE_API_KEY
+uv run trading-system list-secrets
+uv run trading-system delete-secret MASSIVE_API_KEY
+uv run trading-system rotate-master-key
+```
+
+Provider commands resolve secrets from the vault first and environment variables second. Docker and non-interactive workflows may continue to use `.env`; local CLI use should prefer `set-secret` for API keys.
 
 ## Review Tags
 
@@ -260,6 +294,55 @@ uv run trading-system export-review-journal --output .\journal.md --overwrite
 ```
 
 The export includes review identity, reviewed time, linked position and trade plan ids, purpose, direction, realized P&L, tags, quality scores, review notes, lessons, follow-up actions, and linked market-context metadata. It does not include full context payloads; use `show-context` for payload inspection. Existing output files are not replaced unless `--overwrite` is provided.
+
+## Web Trade Capture Interface
+
+Milestone 7 delivers a local Docker-based web interface for capturing trade ideas, theses, and plans from raw trader language.
+
+### Prerequisites
+
+Create a `.env` file in the project root:
+
+```text
+TRADING_SYSTEM_LLM_MODEL=groq/qwen/qwen3-32b
+TRADING_SYSTEM_LLM_API_BASE=https://api.groq.com/openai/v1
+GROQ_API_KEY=<your-groq-api-key>
+```
+
+For local Ollama instead of Groq:
+
+```text
+TRADING_SYSTEM_LLM_MODEL=ollama_chat/<model-name>
+TRADING_SYSTEM_LLM_API_BASE=http://host.docker.internal:11434
+```
+
+Do not commit `.env`. It is listed in `.gitignore`.
+
+### Start the Stack
+
+```powershell
+docker compose up --build
+```
+
+- API: `http://localhost:8000`
+- UI: `http://localhost:5173`
+
+### Workflow
+
+1. Open `http://localhost:5173` in a browser.
+2. Enter a raw trade note in the input field.
+3. Click **Parse** — the draft sections populate with extracted `TradeIdea`, `TradeThesis`, and `TradePlan` fields.
+4. Review and edit any missing or ambiguous fields shown by the validator.
+5. Click **Save** — the system creates linked records in the local JSON store.
+
+Records created through the web interface are identical to records created through the CLI and are immediately accessible via all existing read commands:
+
+```powershell
+uv run trading-system list-trade-ideas
+uv run trading-system show-trade-plan <trade-plan-id>
+```
+
+---
 
 ## Local JSON Operations
 

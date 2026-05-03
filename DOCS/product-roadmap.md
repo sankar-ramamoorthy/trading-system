@@ -20,7 +20,7 @@ The current system remains a local-first, human-in-the-loop trading workflow. It
 
 ## Near-Term Roadmap
 
-The accepted near-term sequence has advanced through Milestone 6.
+The accepted near-term sequence has advanced through Milestone 10.
 
 ### Milestone 3: Manual Workflow Usability
 
@@ -92,14 +92,14 @@ Completed first implementation slice:
 - provider registry boundary and `--provider yfinance`
 - narrow Massive.com daily bars adapter through `--provider massive`
 
-Current sequencing:
+Completed sequencing:
 
 - Milestone 6A: prototype-grade `yfinance` daily OHLCV snapshot fetch is complete.
 - Milestone 6B Issue 1: provider-boundary hardening is complete.
 - Milestone 6C Issue 1: Massive.com provider boundary is accepted in ADR-009.
 - Milestone 6C Issue 2: narrow Massive.com daily bars adapter is complete.
 - Milestone 6D: Milestone 6 closeout is complete.
-- Next accepted direction: begin ADR-008 API-first web product work.
+- ADR-008 API-first web product work continued in completed Milestone 7.
 
 Non-goals:
 
@@ -109,6 +109,95 @@ Non-goals:
 - execution triggers
 - provider-driven recommendations
 - automatic trade, thesis, review, rule, or lifecycle mutation
+
+### Milestone 7: API-First Trade Capture Workspace
+
+Status: complete. See `DOCS/milestone-7-closeout.md`.
+
+Milestone 7 delivered the first local web product: Docker Compose runtime, FastAPI trade-capture API, and React/Vite browser workspace for natural-language capture, parse, edit, and save of structured trade records. The CLI and web interface share the same local JSON store.
+
+### Milestone 8: Options Chain Ingestion
+
+Status: complete. See `DOCS/milestone-8-issue-map.md`.
+
+Add options chain data as the first market data depth extension. Options context helps traders assess strike selection, implied volatility regime, and open interest before entering a position.
+
+Allowed direction:
+
+- `fetch-options-chain SYMBOL --expiry YYYY-MM-DD --provider yfinance|massive`
+- yfinance options chain (calls + puts) for a single expiration date
+- Massive.com options chain with greeks (delta, gamma, theta, vega) where available on the free tier
+- Stored as `context_type: options_chain` MarketContextSnapshot, linkable to plans, positions, or reviews
+- Symbol auto-resolves from ticker (same as `fetch-market-data`)
+
+Non-goals:
+
+- live options quotes or streaming
+- options pricing models or greeks calculation
+- options strategy construction or recommendation
+- order execution of any kind
+- multi-leg or complex positions
+
+### Milestone 9: Web Product Beyond First Capture
+
+Status: complete. See `DOCS/milestone-9-issue-map.md`.
+
+Extend the browser interface beyond the initial trade-capture workflow to support daily use without the CLI.
+
+Completed direction:
+
+- list and detail views for saved plans with linked idea and thesis context
+- plan approval from the browser
+- context attachment from the browser by copying an existing market snapshot to a plan
+- metadata-only context discovery in the browser
+
+Non-goals:
+
+- broker integration or execution
+- automated trading or signals
+- multi-user access or authentication
+- rule evaluation before approval
+
+### Milestone 10: Secure Credentials
+
+Status: complete. See `DOCS/milestone-10-issue-map.md`.
+
+Replace plain-text `.env` API key management with an encrypted local key vault for CLI use.
+
+Completed direction:
+
+- ADR for key vault boundary (library-first, provider-agnostic)
+- `local_secret_vault` library using Fernet encryption and OS keychain for master key
+- CLI commands: `set-secret`, `list-secrets`, `delete-secret`, `rotate-master-key`
+- Secret resolution: encrypted vault first, environment variable fallback (for Docker)
+- `.trading-system/keys.enc` vault file, never committed
+
+Non-goals:
+
+- cloud secret management
+- team credential sharing
+- browser-based secret entry
+- production auth or authorization
+
+### Milestone 11: Broker Boundary and Paper Trading
+
+Status: next planned slice. Scope should be defined as a narrow implementation plan before work starts. Requires V7 readiness criteria.
+
+Introduce the first external execution boundary for paper trading practice.
+
+Candidate direction:
+
+- ADR for execution boundary (provider-agnostic, Alpaca as first implementation)
+- Alpaca paper trading adapter behind the broker boundary
+- Paper order intent → fill recording through the adapter
+- Position and fill records remain in the local JSON store
+
+Non-goals:
+
+- real-money execution (gated by V7 readiness: consistent review data, stable playbook, clean trade records)
+- autonomous or automated trading
+- order management systems
+
 ## Long-Term Product Direction
 
 The longer-term product direction is a training, simulation, review, and decision-support system that helps the trader improve before increasing capital risk.
@@ -216,3 +305,7 @@ The current repository should first generate trustworthy ground truth. Learning 
 - [ADR-005: MVP Definition and Boundaries](ADR/005-mvp-definition-and-boundaries.md)
 - [ADR-006: Deferred Learning Systems Boundary](ADR/006-deferred-learning-systems-boundary.md)
 - [ADR-007: Market Data Provider Boundary](ADR/007-market-data-provider-boundary.md)
+- [Milestone 7 Closeout](milestone-7-closeout.md)
+- [Milestone 9 Issue Map](milestone-9-issue-map.md)
+- [ADR-010: Local Secret Vault Boundary](ADR/010-local-secret-vault-boundary.md)
+- [Milestone 10 Issue Map](milestone-10-issue-map.md)

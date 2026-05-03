@@ -6,8 +6,14 @@ from datetime import date
 from trading_system.infrastructure.massive.market_data_source import (
     MassiveDailyOHLCVImportSource,
 )
+from trading_system.infrastructure.massive.options_chain_source import (
+    MassiveOptionsChainImportSource,
+)
 from trading_system.infrastructure.yfinance.market_data_source import (
     YFinanceDailyOHLCVImportSource,
+)
+from trading_system.infrastructure.yfinance.options_chain_source import (
+    YFinanceOptionsChainImportSource,
 )
 from trading_system.ports.market_context import MarketContextImportSource
 
@@ -49,3 +55,28 @@ class MarketDataProviderRegistry:
                 source_ref=source_adapter.source_ref,
             )
         raise ValueError("Market data provider is not supported.")
+
+    def create_options_chain_source(
+        self,
+        *,
+        provider: str,
+        symbol: str,
+        expiration: date,
+    ) -> "MarketDataImportSourceSelection":
+        """Return an options chain import source for a supported provider."""
+        provider_name = provider.strip().lower()
+        if provider_name == "yfinance":
+            source_adapter = YFinanceOptionsChainImportSource(symbol, expiration)
+            return MarketDataImportSourceSelection(
+                source_adapter=source_adapter,
+                source="yfinance",
+                source_ref=source_adapter.source_ref,
+            )
+        if provider_name == "massive":
+            source_adapter = MassiveOptionsChainImportSource(symbol, expiration)
+            return MarketDataImportSourceSelection(
+                source_adapter=source_adapter,
+                source="massive",
+                source_ref=source_adapter.source_ref,
+            )
+        raise ValueError("Options chain provider is not supported.")

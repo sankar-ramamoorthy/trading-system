@@ -9,6 +9,9 @@ from typing import Literal
 from uuid import UUID, uuid4
 
 import typer
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from trading_system.domain.rules.rule import Rule
 from trading_system.domain.trading.market_context import MarketContextSnapshot
@@ -25,6 +28,7 @@ from trading_system.infrastructure.json.repositories import (
 from trading_system.infrastructure.json.market_context_source import (
     JsonMarketContextImportSource,
 )
+from trading_system.infrastructure.local_secret_vault import LocalSecretVault
 from trading_system.infrastructure.market_data_providers import (
     MarketDataProviderRegistry,
 )
@@ -46,6 +50,8 @@ from trading_system.services.review_service import ReviewService
 from trading_system.services.rule_service import RuleService
 from trading_system.services.trade_planning_service import TradePlanningService
 from trading_system.services.trade_query_service import TradeQueryService
+from trading_system.infrastructure.seeded_reference_data import SeededReferenceDataRepository
+from trading_system.services.reference_lookup_service import ReferenceLookupService
 
 app = typer.Typer(help="Structured discretionary trading system.")
 ListSortOrder = Literal["oldest", "newest"]
@@ -226,13 +232,29 @@ def demo_planned_trade() -> None:
 
 @app.command("create-trade-idea")
 def create_trade_idea(
-    instrument_id: str = typer.Option(..., "--instrument-id"),
-    playbook_id: str = typer.Option(..., "--playbook-id"),
+    instrument_id: str | None = typer.Option(None, "--instrument-id"),
+    symbol: str | None = typer.Option(None, "--symbol"),
+    playbook_id: str | None = typer.Option(None, "--playbook-id"),
+    playbook_slug: str | None = typer.Option(None, "--playbook-slug"),
     purpose: str = typer.Option(..., "--purpose"),
     direction: str = typer.Option(..., "--direction"),
     horizon: str = typer.Option(..., "--horizon"),
 ) -> None:
     """Create and persist a trade idea."""
+    if instrument_id is None and symbol is None:
+        typer.echo("Error: provide --instrument-id or --symbol.", err=True)
+        raise typer.Exit(code=1)
+    if playbook_id is None and playbook_slug is None:
+        typer.echo("Error: provide --playbook-id or --playbook-slug.", err=True)
+        raise typer.Exit(code=1)
+    resolved_instrument_id = (
+        _parse_uuid(instrument_id) if instrument_id is not None
+        else _resolve_instrument_id(symbol)
+    )
+    resolved_playbook_id = (
+        _parse_uuid(playbook_id) if playbook_id is not None
+        else _resolve_playbook_id(playbook_slug)
+    )
     repositories = _repositories()
     planning = TradePlanningService(
         repositories.ideas,
@@ -241,8 +263,8 @@ def create_trade_idea(
     )
     idea = _run_service(
         lambda: planning.create_trade_idea(
-            instrument_id=_parse_uuid(instrument_id),
-            playbook_id=_parse_uuid(playbook_id),
+            instrument_id=resolved_instrument_id,
+            playbook_id=resolved_playbook_id,
             purpose=purpose,
             direction=direction,
             horizon=horizon,
@@ -998,6 +1020,58 @@ def restore_store(
     typer.echo(f"backup_path: {backup_path}")
 
 
+@app.command("set-secret")
+def set_secret(
+    name: str = typer.Argument(...),
+    value: str | None = typer.Option(
+        None,
+        "--value",
+        prompt=True,
+        hide_input=True,
+        confirmation_prompt=True,
+    ),
+) -> None:
+    """Store a local encrypted secret for CLI workflows."""
+    entry = _run_service(lambda: LocalSecretVault().set_secret(name, value or ""))
+    typer.echo(f"secret_name: {entry.name}")
+    typer.echo(f"updated_at: {entry.updated_at.isoformat()}")
+
+
+@app.command("list-secrets")
+def list_secrets() -> None:
+    """List local encrypted secret names without values."""
+    entries = _run_service(lambda: LocalSecretVault().list_secrets())
+    if not entries:
+        typer.echo("No local secrets found.")
+        return
+    for entry in entries:
+        _echo_field_lines(
+            [
+                ("secret_name", entry.name),
+                ("updated_at", entry.updated_at.isoformat()),
+            ]
+        )
+
+
+@app.command("delete-secret")
+def delete_secret(name: str = typer.Argument(...)) -> None:
+    """Delete a local encrypted secret by name."""
+    normalized_name = name.strip().upper()
+    deleted = _run_service(lambda: LocalSecretVault().delete_secret(name))
+    if deleted:
+        typer.echo(f"deleted_secret_name: {normalized_name}")
+        return
+    typer.echo(f"secret_not_found: {normalized_name}")
+
+
+@app.command("rotate-master-key")
+def rotate_master_key() -> None:
+    """Rotate the local vault master key and re-encrypt stored secrets."""
+    secret_count = _run_service(lambda: LocalSecretVault().rotate_master_key())
+    typer.echo("master_key_rotated: true")
+    typer.echo(f"secret_count: {secret_count}")
+
+
 @app.command("list-positions")
 def list_positions(
     state: str | None = typer.Option(
@@ -1200,6 +1274,13 @@ def fetch_market_data(
     repositories = _repositories()
     start_date = _parse_iso_date(start)
     end_date = _parse_iso_date(end)
+    resolved_instrument_id: UUID | None
+    if instrument_id is not None:
+        resolved_instrument_id = _parse_uuid(instrument_id)
+    elif target_type is None:
+        resolved_instrument_id = _resolve_instrument_id(symbol)
+    else:
+        resolved_instrument_id = None
     snapshot = _run_service(
         lambda: _fetch_market_data_snapshot(
             repositories=repositories,
@@ -1207,7 +1288,50 @@ def fetch_market_data(
             symbol=symbol,
             start=start_date,
             end=end_date,
-            instrument_id=None if instrument_id is None else _parse_uuid(instrument_id),
+            instrument_id=resolved_instrument_id,
+            target_type=None if target_type is None else _context_target_type(target_type),
+            target_id=None if target_id is None else _parse_uuid(target_id),
+        )
+    )
+    _echo_context_snapshot_result(snapshot)
+
+
+@app.command("fetch-options-chain")
+def fetch_options_chain(
+    symbol: str = typer.Argument(...),
+    expiry: str = typer.Option(..., "--expiry"),
+    provider: str = typer.Option("yfinance", "--provider"),
+    instrument_id: str | None = typer.Option(None, "--instrument-id"),
+    target_type: ContextTargetOption | None = typer.Option(None, "--target-type"),
+    target_id: str | None = typer.Option(None, "--target-id"),
+) -> None:
+    """Fetch a read-only options chain snapshot for one expiration date."""
+    repositories = _repositories()
+    expiration = _parse_iso_date(expiry)
+    resolved_instrument_id: UUID | None
+    if instrument_id is not None:
+        resolved_instrument_id = _parse_uuid(instrument_id)
+    elif target_type is None:
+        resolved_instrument_id = _resolve_instrument_id(symbol)
+    else:
+        resolved_instrument_id = None
+    selection = MarketDataProviderRegistry().create_options_chain_source(
+        provider=provider,
+        symbol=symbol,
+        expiration=expiration,
+    )
+    snapshot = _run_service(
+        lambda: MarketContextImportService(
+            snapshot_repository=repositories.market_context_snapshots,
+            plan_repository=repositories.plans,
+            position_repository=repositories.positions,
+            review_repository=repositories.reviews,
+            idea_repository=repositories.ideas,
+        ).import_context(
+            selection.source_adapter,
+            source=selection.source,
+            source_ref=selection.source_ref,
+            instrument_id=resolved_instrument_id,
             target_type=None if target_type is None else _context_target_type(target_type),
             target_id=None if target_id is None else _parse_uuid(target_id),
         )
@@ -1425,6 +1549,24 @@ def _fetch_market_data_snapshot(
         target_type=target_type,
         target_id=target_id,
     )
+
+
+def _resolve_instrument_id(symbol: str) -> UUID:
+    """Resolve a ticker symbol to a seeded instrument UUID."""
+    try:
+        return ReferenceLookupService(SeededReferenceDataRepository()).resolve_instrument(symbol).id
+    except ValueError:
+        typer.echo(f"Error: unknown instrument symbol '{symbol}'. Use --instrument-id to specify by UUID.", err=True)
+        raise typer.Exit(code=1)
+
+
+def _resolve_playbook_id(slug: str) -> UUID:
+    """Resolve a playbook slug to a seeded playbook UUID."""
+    try:
+        return ReferenceLookupService(SeededReferenceDataRepository()).resolve_playbook(slug).id
+    except ValueError:
+        typer.echo(f"Error: unknown playbook slug '{slug}'. Use --playbook-id to specify by UUID.", err=True)
+        raise typer.Exit(code=1)
 
 
 def _parse_uuid(value: str) -> UUID:

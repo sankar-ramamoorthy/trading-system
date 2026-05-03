@@ -3,6 +3,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.api
+    env_file:
+      - path: .env
+        required: false
     environment:
       TRADING_SYSTEM_STORE_PATH: /data/store.json
       TRADING_SYSTEM_LLM_API_BASE: ${TRADING_SYSTEM_LLM_API_BASE:-http://host.docker.internal:11434}

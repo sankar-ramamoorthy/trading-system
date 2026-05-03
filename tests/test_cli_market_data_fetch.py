@@ -223,6 +223,7 @@ def test_fetch_market_data_accepts_massive_provider(tmp_path, monkeypatch) -> No
 def test_fetch_market_data_massive_requires_api_key(tmp_path, monkeypatch) -> None:
     """Missing Massive credentials fail before a snapshot is stored."""
     store_path = tmp_path / "store.json"
+    monkeypatch.delenv("MASSIVE_API_KEY", raising=False)
     monkeypatch.setattr(
         "trading_system.infrastructure.massive.market_data_source.import_module",
         lambda name: SimpleNamespace(RESTClient=lambda api_key: _MassiveClient([])),
@@ -258,23 +259,19 @@ def test_fetch_market_data_massive_requires_api_key(tmp_path, monkeypatch) -> No
     assert "No market context snapshots found." in listed.output
 
 
-def test_fetch_market_data_requires_instrument_or_target(tmp_path, monkeypatch) -> None:
-    """The CLI keeps existing instrument/target linking rules."""
+def test_fetch_market_data_unknown_symbol_fails(tmp_path, monkeypatch) -> None:
+    """An unknown ticker symbol produces a clear error and no stored snapshot."""
     store_path = tmp_path / "store.json"
-    frame = _Frame(
-        columns=["Open", "High", "Low", "Close", "Adj Close", "Volume"],
-        rows=[(datetime(2026, 4, 1, 0, 0), {"Open": 1, "High": 2, "Low": 1, "Close": 2, "Adj Close": 2, "Volume": 100})],
-    )
     monkeypatch.setattr(
         "trading_system.infrastructure.yfinance.market_data_source.import_module",
-        lambda name: SimpleNamespace(download=lambda *args, **kwargs: frame),
+        lambda name: SimpleNamespace(download=lambda *args, **kwargs: _Frame([], [])),
     )
 
     result = runner.invoke(
         app,
         [
             "fetch-market-data",
-            "AAPL",
+            "UNKNOWNXYZ",
             "--start",
             "2026-04-01",
             "--end",
@@ -284,7 +281,7 @@ def test_fetch_market_data_requires_instrument_or_target(tmp_path, monkeypatch) 
     )
 
     assert result.exit_code != 0
-    assert "Instrument id is required when no context target is provided." in result.output
+    assert "unknown instrument symbol" in result.output.lower()
 
 
 def _create_plan(repositories):
