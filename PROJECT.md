@@ -2,11 +2,11 @@
 
 ## Current Milestone
 
-Milestone 12 is complete. Active direction: choose and plan Milestone 13 before adding live Alpaca paper calls.
+Milestone 13 is in closeout. Alpaca paper trading is now available behind the existing broker port and CLI paper-order commands.
 
 ## Current Slice
 
-Milestone 12 hardened broker-order inspection, audit visibility, and simulated paper lifecycle coverage through core services and CLI only.
+Milestone 13 added the Alpaca paper adapter through core services and CLI only. The slice keeps browser controls, API broker endpoints, reconciliation, and real-money execution out of scope.
 
 ## Constraints
 
@@ -14,8 +14,8 @@ Milestone 12 hardened broker-order inspection, audit visibility, and simulated p
 - Context interactions are explicit and user-invoked.
 - Stored context is a timestamped snapshot or cached reference, not a live feed.
 - External context does not define canonical trade meaning.
-- No live broker integration, real-money execution, execution triggers, streaming, or automated plan creation.
-- Simulated paper execution is CLI-only and requires existing local `OrderIntent` and open `Position` records.
+- No real-money execution, execution triggers, streaming, or automated plan creation.
+- Paper execution is CLI-only and requires existing local `OrderIntent` and open `Position` records.
 - No AI or ML decision-making.
 - External provider adapters such as yfinance and Massive.com must stay behind the accepted ADR-007 and ADR-009 boundaries.
 - Market data provider work must stay read-only, local-first, explicit, and auditable unless a later ADR changes the boundary.
@@ -24,8 +24,8 @@ Milestone 12 hardened broker-order inspection, audit visibility, and simulated p
 ## Next Steps
 
 - Use `DOCS/post-milestone-11-roadmap.md` as the high-level sequencing guide.
-- Choose and plan Milestone 13 before expanding broker execution.
-- Keep future Alpaca work behind the accepted broker port and local secret-vault boundary.
+- Close Milestone 13 after full-suite validation and status updates.
+- Treat future broker work as Milestone 14 reconciliation/status sync, not browser execution controls.
 - Preserve the Milestone 11 boundary: no FastAPI or React broker controls until the CLI paper workflow is proven sufficient.
 - Keep `fetch-market-data` scoped to read-only daily OHLCV snapshots unless a new issue explicitly expands provider scope.
 - Preserve the distinction between canonical trade records, read-only market context, and derived read models.

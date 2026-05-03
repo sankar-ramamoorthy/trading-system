@@ -223,16 +223,17 @@ Non-goals:
 
 ### Milestone 13: Alpaca Paper Adapter
 
-Status: future planned slice.
+Status: complete. See `DOCS/milestone-13-issue-map.md`.
 
 Add Alpaca paper-trading integration behind the accepted broker port after the simulated workflow is hardened.
 
-Candidate direction:
+Completed direction:
 
 - Alpaca paper adapter behind `BrokerClient`
 - vault-first, environment-fallback credential resolution for `ALPACA_API_KEY` and `ALPACA_SECRET_KEY`
 - submit from existing local `OrderIntent` and open local `Position` records only
 - map Alpaca order and fill facts into local `BrokerOrder` and `Fill` records
+- keep controls CLI-only for the first Alpaca slice
 
 Non-goals:
 
@@ -366,4 +367,5 @@ The current repository should first generate trustworthy ground truth. Learning 
 - [ADR-011: Broker Execution Boundary](ADR/011-broker-execution-boundary.md)
 - [Milestone 11 Issue Map](milestone-11-issue-map.md)
 - [Milestone 12 Issue Map](milestone-12-issue-map.md)
+- [Milestone 13 Issue Map](milestone-13-issue-map.md)
 - [Post-Milestone 11 Roadmap](post-milestone-11-roadmap.md)

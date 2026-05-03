@@ -252,12 +252,29 @@ Milestone 10 adds a local encrypted secret vault for CLI API keys. The vault sto
 
 ```powershell
 uv run trading-system set-secret MASSIVE_API_KEY
+uv run trading-system set-secret ALPACA_API_KEY
+uv run trading-system set-secret ALPACA_SECRET_KEY
 uv run trading-system list-secrets
 uv run trading-system delete-secret MASSIVE_API_KEY
 uv run trading-system rotate-master-key
 ```
 
 Provider commands resolve secrets from the vault first and environment variables second. Docker and non-interactive workflows may continue to use `.env`; local CLI use should prefer `set-secret` for API keys.
+
+## Paper Broker Execution
+
+Paper broker execution is CLI-only and requires an existing local `OrderIntent` plus an open local `Position`. Simulated paper execution remains available for deterministic local testing. Alpaca paper execution uses the same local broker boundary and requires `ALPACA_API_KEY` and `ALPACA_SECRET_KEY`.
+
+```powershell
+uv run trading-system submit-paper-order <order-intent-id> --position-id <position-id> --provider simulated
+uv run trading-system sync-paper-order <broker-order-id> --simulated-fill-price 25.50
+uv run trading-system submit-paper-order <order-intent-id> --position-id <position-id> --provider alpaca
+uv run trading-system sync-paper-order <broker-order-id>
+uv run trading-system show-broker-order <broker-order-id>
+uv run trading-system list-broker-orders --provider alpaca
+```
+
+Broker facts are imported as external execution facts. Local JSON trade records remain the source of truth for internal trade meaning and audit history.
 
 ## Review Tags
 
@@ -362,7 +379,7 @@ Backups are exact timestamped JSON copies of the configured store and default to
 - execution is manual
 - prices and fills are user-entered
 - data persists locally in JSON by default
-- no broker integration exists yet
+- paper broker integration is CLI-only and human-invoked
 - market context exists as explicit read-only local snapshots; `fetch-market-data` supports yfinance and Massive.com daily-OHLCV ingestion paths behind the same boundary
 - the system is currently a discipline and journaling tool
 

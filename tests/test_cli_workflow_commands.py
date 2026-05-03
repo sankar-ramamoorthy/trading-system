@@ -1,11 +1,15 @@
 """CLI tests for explicit write commands and upstream read commands."""
 
+from datetime import UTC, datetime
+from decimal import Decimal
 import json
 from uuid import uuid4
 
 from typer.testing import CliRunner
 
+from trading_system.domain.trading.broker_order import BrokerOrderStatus
 from trading_system.app.cli import app
+from trading_system.ports.broker import BrokerOrderSync, BrokerSubmission
 
 
 runner = CliRunner()
@@ -563,6 +567,54 @@ def test_paper_order_commands_submit_sync_and_show_broker_order(tmp_path) -> Non
     assert "ALPACA" not in show.output
 
 
+def test_alpaca_paper_order_cli_submit_and_sync_without_simulated_price(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """Alpaca provider selection uses real paper-provider semantics in the CLI."""
+    import trading_system.app.cli as cli
+
+    monkeypatch.setattr(
+        cli,
+        "AlpacaPaperBrokerClient",
+        _FakeAlpacaPaperBrokerClient,
+    )
+    store_path = tmp_path / "store.json"
+    plan_id = _seed_approved_and_evaluated_plan(store_path)
+    position_id = _open_position(store_path, plan_id)
+    order_intent_id = _create_order_intent(store_path, plan_id)
+
+    submit = runner.invoke(
+        app,
+        [
+            "submit-paper-order",
+            order_intent_id,
+            "--position-id",
+            position_id,
+            "--provider",
+            "alpaca",
+        ],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert submit.exit_code == 0
+    broker_order_id = _field(submit.output, "broker_order_id")
+    assert "provider: alpaca" in submit.output
+    assert "provider_order_id: alpaca-test-order" in submit.output
+
+    sync = runner.invoke(
+        app,
+        ["sync-paper-order", broker_order_id],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert sync.exit_code == 0
+    assert f"broker_order_id: {broker_order_id}" in sync.output
+    assert "status: filled" in sync.output
+    assert "fill_id:" in sync.output
+    assert "source: broker:alpaca" in sync.output
+
+
 def test_broker_order_list_cancel_and_reject_commands(tmp_path) -> None:
     """Broker-order CLI commands expose filters and simulated terminal outcomes."""
     store_path = tmp_path / "store.json"
@@ -969,6 +1021,29 @@ def _submit_paper_order(
     )
     assert result.exit_code == 0
     return _field(result.output, "broker_order_id")
+
+
+class _FakeAlpacaPaperBrokerClient:
+    provider = "alpaca"
+
+    def submit_order(self, order_intent, position):
+        timestamp = datetime(2026, 5, 3, tzinfo=UTC)
+        return BrokerSubmission(
+            provider=self.provider,
+            provider_order_id="alpaca-test-order",
+            status=BrokerOrderStatus.SUBMITTED,
+            submitted_at=timestamp,
+            updated_at=timestamp,
+        )
+
+    def sync_order(self, broker_order_id, simulated_fill_price=None):
+        assert broker_order_id == "alpaca-test-order"
+        assert simulated_fill_price is None
+        return BrokerOrderSync(
+            status=BrokerOrderStatus.FILLED,
+            updated_at=datetime(2026, 5, 3, tzinfo=UTC),
+            fill_price=Decimal("25.50"),
+        )
 
 
 def _field(output: str, name: str) -> str:

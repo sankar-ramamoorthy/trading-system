@@ -8,6 +8,7 @@ import pytest
 from trading_system.domain.rules.rule import Rule
 from trading_system.domain.trading.broker_order import BrokerOrderStatus
 from trading_system.domain.trading.order_intent import OrderSide, OrderType
+from trading_system.ports.broker import BrokerOrderSync, BrokerSubmission
 from trading_system.infrastructure.broker import SimulatedPaperBrokerClient
 from trading_system.infrastructure.memory.repositories import (
     InMemoryBrokerOrderRepository,
@@ -175,6 +176,25 @@ def test_repeated_sync_is_idempotent() -> None:
     assert workflow.position_repository.get(position.id).current_quantity == Decimal("100")
 
 
+def test_sync_updates_unfilled_broker_order_without_importing_fill() -> None:
+    """A provider sync that is not filled updates order status without a fill."""
+    workflow = _workflow(broker_client=_SubmittedOnlyBrokerClient())
+    plan = workflow.create_approved_and_evaluated_plan()
+    position = workflow.positions.open_position_from_plan(plan.id)
+    order_intent = workflow.create_order_intent(plan.id)
+    broker_order = workflow.broker_execution.submit_paper_order(
+        order_intent.id,
+        position.id,
+        provider="submitted-only",
+    )
+
+    result = workflow.broker_execution.sync_paper_order(broker_order.id)
+
+    assert result.broker_order.status == BrokerOrderStatus.SUBMITTED
+    assert result.fill is None
+    assert workflow.fills_repository.list_by_broker_order_id(broker_order.id) == []
+
+
 def test_broker_fill_can_close_position_through_existing_fill_logic() -> None:
     """Broker-imported reducing fills can close a local position."""
     workflow = _workflow()
@@ -321,7 +341,7 @@ def test_cannot_cancel_or_reject_filled_broker_order() -> None:
 
 
 class _Workflow:
-    def __init__(self) -> None:
+    def __init__(self, broker_client=None) -> None:
         self.idea_repository = InMemoryTradeIdeaRepository()
         self.thesis_repository = InMemoryTradeThesisRepository()
         self.plan_repository = InMemoryTradePlanRepository()
@@ -365,7 +385,7 @@ class _Workflow:
             broker_order_repository=self.broker_orders,
             fill_repository=self.fills_repository,
             lifecycle_event_repository=self.lifecycle_events,
-            broker_client=SimulatedPaperBrokerClient(),
+            broker_client=broker_client or SimulatedPaperBrokerClient(),
         )
         self.broker_query = BrokerQueryService(
             broker_order_repository=self.broker_orders,
@@ -422,5 +442,32 @@ class _Workflow:
         )
 
 
-def _workflow() -> _Workflow:
-    return _Workflow()
+class _SubmittedOnlyBrokerClient:
+    provider = "submitted-only"
+
+    def submit_order(self, order_intent, position):
+        timestamp = datetime_now()
+        return BrokerSubmission(
+            provider=self.provider,
+            provider_order_id=f"submitted-only-{order_intent.id}",
+            status=BrokerOrderStatus.SUBMITTED,
+            submitted_at=timestamp,
+            updated_at=timestamp,
+        )
+
+    def sync_order(self, broker_order_id, simulated_fill_price=None):
+        return BrokerOrderSync(
+            status=BrokerOrderStatus.SUBMITTED,
+            updated_at=datetime_now(),
+            fill_price=None,
+        )
+
+
+def datetime_now():
+    from datetime import UTC, datetime
+
+    return datetime.now(UTC)
+
+
+def _workflow(broker_client=None) -> _Workflow:
+    return _Workflow(broker_client=broker_client)
