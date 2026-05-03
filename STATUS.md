@@ -2,7 +2,7 @@
 
 ## Current Milestone
 
-Milestones 1 through 12 are complete. Milestone 12 hardened simulated paper execution through core services and CLI commands only.
+Milestones 1 through 13 are complete. Milestone 13 added Alpaca paper trading behind the existing broker port through core services and CLI commands only.
 
 ## Implementation State
 
@@ -18,8 +18,9 @@ Milestones 1 through 12 are complete. Milestone 12 hardened simulated paper exec
 - Milestone 10: complete (secure credentials)
 - Milestone 11: complete (broker boundary and simulated paper execution)
 - Milestone 12: complete (paper execution hardening)
+- Milestone 13: complete (Alpaca paper adapter)
 
-The system is currently a functional local trading workflow with CLI and web entry points, local JSON persistence, lifecycle tracking, review/export support, local JSON operations, read-only context snapshots, API-first trade capture, options chain ingestion, browser-based plan inspection, approval, context attachment, and CLI-only simulated paper broker execution.
+The system is currently a functional local trading workflow with CLI and web entry points, local JSON persistence, lifecycle tracking, review/export support, local JSON operations, read-only context snapshots, API-first trade capture, options chain ingestion, browser-based plan inspection, approval, context attachment, CLI-only simulated paper broker execution, and CLI-only Alpaca paper trading.
 
 ## Available Capabilities
 
@@ -65,10 +66,14 @@ The system is currently a functional local trading workflow with CLI and web ent
 - CLI paper execution commands: `submit-paper-order`, `sync-paper-order`, `show-broker-order`
 - Broker-order listing and linked-detail inspection for simulated paper execution
 - Simulated paper-order cancellation and rejection workflows
+- Alpaca paper broker adapter behind the existing `BrokerClient` port
+- Vault-first, environment-fallback resolution for `ALPACA_API_KEY` and `ALPACA_SECRET_KEY`
+- CLI Alpaca paper submission through `submit-paper-order --provider alpaca`
+- CLI Alpaca paper sync through `sync-paper-order` without simulated fill prices
 
 ## Active Constraints
 
-- No live broker integration or real-money execution
+- No real-money execution
 - No automated execution
 - No live market data streaming
 - No AI or ML decision-making
@@ -372,9 +377,22 @@ Validation recorded on 2026-05-03:
 - `uv run pytest tests\test_local_secret_vault.py tests\test_cli_secrets.py tests\test_massive_market_data_source.py tests\test_massive_options_chain_source.py tests\test_cli_market_data_fetch.py`: 30 passed
 - `uv run pytest`: 246 passed
 
+## Completed Slice (Milestone 13)
+
+Milestone 13 is Alpaca Paper Adapter.
+
+This slice adds the first live paper broker adapter behind the existing provider-agnostic broker port. Alpaca paper submission uses the official `alpaca-py` SDK, resolves `ALPACA_API_KEY` and `ALPACA_SECRET_KEY` through the local vault before environment fallback, and maps local `OrderIntent` records into Alpaca market, limit, stop, and stop-limit requests. Sync maps Alpaca statuses into local `BrokerOrderStatus` and imports local `Fill` records only after Alpaca reports a filled order with an average fill price.
+
+Milestone 13 intentionally does not add real-money execution, FastAPI broker endpoints, React broker controls, browser execution buttons, broker-position reconciliation, autonomous trading, or full order-management-system behavior.
+
+Validation recorded on 2026-05-03:
+
+- `uv run pytest tests\test_alpaca_paper_broker.py tests\test_broker_execution_service.py tests\test_cli_workflow_commands.py`: 44 passed
+- `uv run pytest`: 280 passed
+
 ## Next Slice
 
-Milestone 11: Broker Boundary and Paper Trading. See `DOCS/product-roadmap.md`.
+Milestone 14: Broker Reconciliation And Status Sync. See `DOCS/post-milestone-11-roadmap.md`.
 
 ## Immediate Design Guardrails
 
@@ -407,6 +425,10 @@ Authoritative documents for implementation:
 - `DOCS/milestone-9-issue-map.md`
 - `DOCS/ADR/010-local-secret-vault-boundary.md`
 - `DOCS/milestone-10-issue-map.md`
+- `DOCS/ADR/011-broker-execution-boundary.md`
+- `DOCS/milestone-11-issue-map.md`
+- `DOCS/milestone-12-issue-map.md`
+- `DOCS/milestone-13-issue-map.md`
 
 The domain model remains the canonical source of truth for entities and relationships.
 

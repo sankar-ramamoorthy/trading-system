@@ -17,7 +17,10 @@ from trading_system.domain.rules.rule import Rule
 from trading_system.domain.trading.broker_order import BrokerOrder, BrokerOrderStatus
 from trading_system.domain.trading.market_context import MarketContextSnapshot
 from trading_system.domain.trading.order_intent import OrderIntent, OrderSide, OrderType
-from trading_system.infrastructure.broker import SimulatedPaperBrokerClient
+from trading_system.infrastructure.broker import (
+    AlpacaPaperBrokerClient,
+    SimulatedPaperBrokerClient,
+)
 from trading_system.domain.trading.review import TradeReview
 from trading_system.infrastructure.json.repositories import (
     backup_json_store,
@@ -528,21 +531,29 @@ def submit_paper_order(
 @app.command("sync-paper-order")
 def sync_paper_order(
     broker_order_id: str = typer.Argument(...),
-    simulated_fill_price: str = typer.Option(..., "--simulated-fill-price"),
+    simulated_fill_price: str | None = typer.Option(None, "--simulated-fill-price"),
 ) -> None:
-    """Sync a local paper broker order using an explicit simulated fill price."""
+    """Sync a local paper broker order."""
     repositories = _repositories()
+    broker_order = _get_broker_order(repositories, _parse_uuid(broker_order_id))
     result = _run_service(
-        lambda: _broker_execution_service(repositories).sync_paper_order(
-            broker_order_id=_parse_uuid(broker_order_id),
-            simulated_fill_price=_parse_decimal(simulated_fill_price),
+        lambda: _broker_execution_service(
+            repositories,
+            provider=broker_order.provider,
+        ).sync_paper_order(
+            broker_order_id=broker_order.id,
+            simulated_fill_price=None
+            if simulated_fill_price is None
+            else _parse_decimal(simulated_fill_price),
         )
     )
-    typer.echo(f"fill_id: {result.fill.id}")
     typer.echo(f"broker_order_id: {result.broker_order.id}")
-    typer.echo(f"order_intent_id: {result.fill.order_intent_id}")
-    typer.echo(f"position_id: {result.fill.position_id}")
-    typer.echo(f"source: {result.fill.source}")
+    typer.echo(f"status: {result.broker_order.status.value}")
+    if result.fill is not None:
+        typer.echo(f"fill_id: {result.fill.id}")
+        typer.echo(f"order_intent_id: {result.fill.order_intent_id}")
+        typer.echo(f"position_id: {result.fill.position_id}")
+        typer.echo(f"source: {result.fill.source}")
     typer.echo(f"position_state: {result.position_state}")
     typer.echo(f"open_quantity: {result.open_quantity}")
 
@@ -1686,16 +1697,23 @@ def _broker_execution_service(
     provider: str = "simulated",
 ) -> BrokerExecutionService:
     """Build the paper broker execution service for CLI workflows."""
-    if provider != "simulated":
-        raise ValueError(f"Unsupported paper broker provider: {provider}.")
     return BrokerExecutionService(
         order_intent_repository=repositories.order_intents,
         position_repository=repositories.positions,
         broker_order_repository=repositories.broker_orders,
         fill_repository=repositories.fills,
         lifecycle_event_repository=repositories.lifecycle_events,
-        broker_client=SimulatedPaperBrokerClient(),
+        broker_client=_broker_client_for_provider(provider),
     )
+
+
+def _broker_client_for_provider(provider: str):
+    """Build a paper broker client for a supported provider."""
+    if provider == "simulated":
+        return SimulatedPaperBrokerClient()
+    if provider == "alpaca":
+        return AlpacaPaperBrokerClient()
+    raise ValueError(f"Unsupported paper broker provider: {provider}.")
 
 
 def _get_broker_order(

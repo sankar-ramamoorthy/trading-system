@@ -27,7 +27,7 @@ class PaperOrderSyncResult:
     """Result of syncing a paper broker order into local records."""
 
     broker_order: BrokerOrder
-    fill: Fill
+    fill: Fill | None
     position_state: str
     open_quantity: Decimal
 
@@ -116,7 +116,7 @@ class BrokerExecutionService:
     def sync_paper_order(
         self,
         broker_order_id: UUID,
-        simulated_fill_price: Decimal,
+        simulated_fill_price: Decimal | None = None,
     ) -> PaperOrderSyncResult:
         """Import a paper broker fill into the local position lifecycle."""
         broker_order = self._broker_orders.get(broker_order_id)
@@ -164,7 +164,12 @@ class BrokerExecutionService:
                 updated_at=synced.updated_at,
             )
             self._broker_orders.update(updated)
-            raise ValueError("Broker order is not filled.")
+            return PaperOrderSyncResult(
+                broker_order=updated,
+                fill=None,
+                position_state=position.lifecycle_state,
+                open_quantity=position.current_quantity,
+            )
 
         was_open = position.lifecycle_state == "open"
         fill = Fill(
