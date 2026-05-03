@@ -164,6 +164,23 @@ class BrokerExecutionService:
                 updated_at=synced.updated_at,
             )
             self._broker_orders.update(updated)
+            self._lifecycle_events.add(
+                LifecycleEvent(
+                    entity_id=updated.id,
+                    entity_type="BrokerOrder",
+                    event_type="BROKER_ORDER_SYNCED",
+                    note=f"Synced paper broker order {updated.id}.",
+                    details={
+                        "broker_order_id": str(updated.id),
+                        "order_intent_id": str(updated.order_intent_id),
+                        "position_id": str(updated.position_id),
+                        "provider": updated.provider,
+                        "provider_order_id": updated.provider_order_id,
+                        "previous_status": broker_order.status.value,
+                        "status": updated.status.value,
+                    },
+                )
+            )
             return PaperOrderSyncResult(
                 broker_order=updated,
                 fill=None,

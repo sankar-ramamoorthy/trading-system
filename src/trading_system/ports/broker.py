@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Protocol
 
 from trading_system.domain.trading.broker_order import BrokerOrderStatus
-from trading_system.domain.trading.order_intent import OrderIntent
+from trading_system.domain.trading.order_intent import OrderIntent, OrderSide
 from trading_system.domain.trading.position import Position
 
 
@@ -30,6 +30,20 @@ class BrokerOrderSync:
     fill_price: Decimal | None = None
 
 
+@dataclass(frozen=True)
+class BrokerOrderSnapshot:
+    """Provider-side broker order facts used for explicit reconciliation."""
+
+    provider: str
+    provider_order_id: str
+    status: BrokerOrderStatus
+    updated_at: datetime
+    symbol: str
+    side: OrderSide
+    quantity: Decimal
+    fill_price: Decimal | None = None
+
+
 class BrokerClient(Protocol):
     """Provider-agnostic broker execution client boundary."""
 
@@ -49,4 +63,8 @@ class BrokerClient(Protocol):
         simulated_fill_price: Decimal | None = None,
     ) -> BrokerOrderSync:
         """Return provider-side status for a previously submitted order."""
+        ...
+
+    def list_order_snapshots(self) -> list[BrokerOrderSnapshot]:
+        """Return provider-side order snapshots for explicit reconciliation."""
         ...

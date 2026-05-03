@@ -40,6 +40,9 @@ from trading_system.infrastructure.market_data_providers import (
 from trading_system.services.cancel_order_intent_service import CancelOrderIntentService
 from trading_system.services.broker_execution_service import BrokerExecutionService
 from trading_system.services.broker_query_service import BrokerQueryService
+from trading_system.services.broker_reconciliation_service import (
+    BrokerReconciliationService,
+)
 from trading_system.rules_engine.implementations.risk_defined_rule import RiskDefinedRule
 from trading_system.services.create_order_intent_service import CreateOrderIntentService
 from trading_system.services.fill_service import FillService
@@ -556,6 +559,62 @@ def sync_paper_order(
         typer.echo(f"source: {result.fill.source}")
     typer.echo(f"position_state: {result.position_state}")
     typer.echo(f"open_quantity: {result.open_quantity}")
+
+
+@app.command("sync-broker-orders")
+def sync_broker_orders(
+    provider: str = typer.Option(..., "--provider"),
+) -> None:
+    """Sync all local submitted broker orders for one paper broker provider."""
+    repositories = _repositories()
+    results = _run_service(
+        lambda: _broker_reconciliation_service(
+            repositories,
+            provider=provider,
+        ).sync_submitted_orders(provider)
+    )
+    typer.echo(f"provider: {provider}")
+    typer.echo(f"synced_count: {len(results)}")
+    if not results:
+        return
+    typer.echo(
+        "BROKER_ORDER_ID | PROVIDER_ORDER_ID | PREVIOUS_STATUS | STATUS | "
+        "CHANGED | FILL_ID"
+    )
+    for item in results:
+        typer.echo(
+            " | ".join(
+                [
+                    str(item.broker_order.id),
+                    item.broker_order.provider_order_id,
+                    item.previous_status.value,
+                    item.broker_order.status.value,
+                    str(item.changed).lower(),
+                    "" if item.fill is None else str(item.fill.id),
+                ]
+            )
+        )
+
+
+@app.command("reconcile-broker-orders")
+def reconcile_broker_orders(
+    provider: str = typer.Option(..., "--provider"),
+) -> None:
+    """Reconcile local broker orders against provider order snapshots."""
+    repositories = _repositories()
+    report = _run_service(
+        lambda: _broker_reconciliation_service(
+            repositories,
+            provider=provider,
+        ).reconcile_orders(provider)
+    )
+    typer.echo(f"provider: {provider}")
+    typer.echo(f"matched: {len(report.matched)}")
+    typer.echo(f"updated: {len(report.updated)}")
+    typer.echo(f"missing_remote: {len(report.missing_remote)}")
+    typer.echo(f"broker_only: {len(report.broker_only)}")
+    typer.echo(f"status_mismatch: {len(report.status_mismatch)}")
+    typer.echo(f"fill_mismatch: {len(report.fill_mismatch)}")
 
 
 @app.command("cancel-paper-order")
@@ -1698,6 +1757,21 @@ def _broker_execution_service(
 ) -> BrokerExecutionService:
     """Build the paper broker execution service for CLI workflows."""
     return BrokerExecutionService(
+        order_intent_repository=repositories.order_intents,
+        position_repository=repositories.positions,
+        broker_order_repository=repositories.broker_orders,
+        fill_repository=repositories.fills,
+        lifecycle_event_repository=repositories.lifecycle_events,
+        broker_client=_broker_client_for_provider(provider),
+    )
+
+
+def _broker_reconciliation_service(
+    repositories: JsonRepositorySet,
+    provider: str,
+) -> BrokerReconciliationService:
+    """Build broker reconciliation workflows for CLI commands."""
+    return BrokerReconciliationService(
         order_intent_repository=repositories.order_intents,
         position_repository=repositories.positions,
         broker_order_repository=repositories.broker_orders,

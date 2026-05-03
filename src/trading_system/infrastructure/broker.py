@@ -8,7 +8,12 @@ from trading_system.domain.trading.broker_order import BrokerOrderStatus
 from trading_system.domain.trading.order_intent import OrderIntent, OrderSide, OrderType
 from trading_system.domain.trading.position import Position
 from trading_system.infrastructure.local_secret_vault import require_secret
-from trading_system.ports.broker import BrokerClient, BrokerOrderSync, BrokerSubmission
+from trading_system.ports.broker import (
+    BrokerClient,
+    BrokerOrderSnapshot,
+    BrokerOrderSync,
+    BrokerSubmission,
+)
 
 
 class SimulatedPaperBrokerClient(BrokerClient):
@@ -46,6 +51,10 @@ class SimulatedPaperBrokerClient(BrokerClient):
             updated_at=datetime.now(UTC),
             fill_price=simulated_fill_price,
         )
+
+    def list_order_snapshots(self) -> list[BrokerOrderSnapshot]:
+        """Simulated orders are local-only and have no remote listing."""
+        return []
 
 
 class AlpacaPaperBrokerClient(BrokerClient):
@@ -99,6 +108,19 @@ class AlpacaPaperBrokerClient(BrokerClient):
             updated_at=_datetime_attr(order, "updated_at") or datetime.now(UTC),
             fill_price=fill_price,
         )
+
+    def list_order_snapshots(self) -> list[BrokerOrderSnapshot]:
+        """List Alpaca paper order snapshots without leaking provider objects."""
+        try:
+            from alpaca.trading.enums import QueryOrderStatus
+            from alpaca.trading.requests import GetOrdersRequest
+        except ModuleNotFoundError as exc:  # pragma: no cover - dependency guard
+            raise ValueError("alpaca-py is required for Alpaca paper trading.") from exc
+        request = GetOrdersRequest(status=QueryOrderStatus.ALL)
+        return [
+            _alpaca_order_snapshot(self.provider, order)
+            for order in self._trading_client().get_orders(filter=request)
+        ]
 
     def _trading_client(self) -> Any:
         if self._client is not None:
@@ -177,6 +199,26 @@ def _map_alpaca_status(status: Any) -> BrokerOrderStatus:
     return BrokerOrderStatus.SUBMITTED
 
 
+def _alpaca_order_snapshot(provider: str, order: Any) -> BrokerOrderSnapshot:
+    status = _map_alpaca_status(_required_attr(order, "status"))
+    fill_price = _decimal_attr(order, "filled_avg_price")
+    quantity = _decimal_attr(order, "qty") or _decimal_attr(order, "quantity")
+    if status == BrokerOrderStatus.FILLED and fill_price is None:
+        raise ValueError("Filled Alpaca order did not include an average fill price.")
+    if quantity is None:
+        raise ValueError("Alpaca order response missing qty.")
+    return BrokerOrderSnapshot(
+        provider=provider,
+        provider_order_id=str(_required_attr(order, "id")),
+        status=status,
+        updated_at=_datetime_attr(order, "updated_at") or datetime.now(UTC),
+        symbol=str(_required_attr(order, "symbol")),
+        side=_order_side_attr(order, "side"),
+        quantity=quantity,
+        fill_price=fill_price,
+    )
+
+
 def _required_attr(item: Any, name: str) -> Any:
     value = getattr(item, name, None)
     if value is None and isinstance(item, dict):
@@ -200,3 +242,15 @@ def _decimal_attr(item: Any, name: str) -> Decimal | None:
     if value is None or value == "":
         return None
     return Decimal(str(value))
+
+
+def _order_side_attr(item: Any, name: str) -> OrderSide:
+    value = getattr(item, name, None)
+    if value is None and isinstance(item, dict):
+        value = item.get(name)
+    normalized = str(getattr(value, "value", value)).lower()
+    if normalized == OrderSide.BUY.value:
+        return OrderSide.BUY
+    if normalized == OrderSide.SELL.value:
+        return OrderSide.SELL
+    raise ValueError(f"Alpaca order response has unsupported side: {value}.")

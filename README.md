@@ -270,11 +270,13 @@ uv run trading-system submit-paper-order <order-intent-id> --position-id <positi
 uv run trading-system sync-paper-order <broker-order-id> --simulated-fill-price 25.50
 uv run trading-system submit-paper-order <order-intent-id> --position-id <position-id> --provider alpaca
 uv run trading-system sync-paper-order <broker-order-id>
+uv run trading-system sync-broker-orders --provider alpaca
+uv run trading-system reconcile-broker-orders --provider alpaca
 uv run trading-system show-broker-order <broker-order-id>
 uv run trading-system list-broker-orders --provider alpaca
 ```
 
-Broker facts are imported as external execution facts. Local JSON trade records remain the source of truth for internal trade meaning and audit history.
+Broker facts are imported as external execution facts. Local JSON trade records remain the source of truth for internal trade meaning and audit history. Reconciliation reports broker-only, missing-remote, status-mismatch, and fill-mismatch records without creating local orders from broker-only records.
 
 ## Review Tags
 
