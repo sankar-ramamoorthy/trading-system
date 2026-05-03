@@ -246,6 +246,19 @@ Each contract in the snapshot includes: strike, contract type, bid, ask, last pr
 
 ADR-007 and ADR-009 define the Milestone 6 provider boundary. Milestone 6 is complete: `fetch-market-data` stores provider-backed daily OHLCV snapshots as explicit `MarketContextSnapshot` records. `yfinance` remains the default provider; `--provider yfinance` and `--provider massive` are both accepted explicitly. Massive.com fetches require `MASSIVE_API_KEY`. External data remains read-only, advisory, and non-canonical.
 
+## Local Secrets
+
+Milestone 10 adds a local encrypted secret vault for CLI API keys. The vault stores encrypted secret values in `.trading-system/keys.enc` and keeps the master key in the operating system keychain.
+
+```powershell
+uv run trading-system set-secret MASSIVE_API_KEY
+uv run trading-system list-secrets
+uv run trading-system delete-secret MASSIVE_API_KEY
+uv run trading-system rotate-master-key
+```
+
+Provider commands resolve secrets from the vault first and environment variables second. Docker and non-interactive workflows may continue to use `.env`; local CLI use should prefer `set-secret` for API keys.
+
 ## Review Tags
 
 Milestone 5 starts with creation-time review tags for local learning loops. Tags are simple lowercase slugs stored on `TradeReview`, shown in review list/detail output, and filterable through repeated `--tag` options.

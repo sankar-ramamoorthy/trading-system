@@ -28,6 +28,7 @@ from trading_system.infrastructure.json.repositories import (
 from trading_system.infrastructure.json.market_context_source import (
     JsonMarketContextImportSource,
 )
+from trading_system.infrastructure.local_secret_vault import LocalSecretVault
 from trading_system.infrastructure.market_data_providers import (
     MarketDataProviderRegistry,
 )
@@ -1017,6 +1018,58 @@ def restore_store(
     )
     typer.echo(f"restored_store_path: {store_path}")
     typer.echo(f"backup_path: {backup_path}")
+
+
+@app.command("set-secret")
+def set_secret(
+    name: str = typer.Argument(...),
+    value: str | None = typer.Option(
+        None,
+        "--value",
+        prompt=True,
+        hide_input=True,
+        confirmation_prompt=True,
+    ),
+) -> None:
+    """Store a local encrypted secret for CLI workflows."""
+    entry = _run_service(lambda: LocalSecretVault().set_secret(name, value or ""))
+    typer.echo(f"secret_name: {entry.name}")
+    typer.echo(f"updated_at: {entry.updated_at.isoformat()}")
+
+
+@app.command("list-secrets")
+def list_secrets() -> None:
+    """List local encrypted secret names without values."""
+    entries = _run_service(lambda: LocalSecretVault().list_secrets())
+    if not entries:
+        typer.echo("No local secrets found.")
+        return
+    for entry in entries:
+        _echo_field_lines(
+            [
+                ("secret_name", entry.name),
+                ("updated_at", entry.updated_at.isoformat()),
+            ]
+        )
+
+
+@app.command("delete-secret")
+def delete_secret(name: str = typer.Argument(...)) -> None:
+    """Delete a local encrypted secret by name."""
+    normalized_name = name.strip().upper()
+    deleted = _run_service(lambda: LocalSecretVault().delete_secret(name))
+    if deleted:
+        typer.echo(f"deleted_secret_name: {normalized_name}")
+        return
+    typer.echo(f"secret_not_found: {normalized_name}")
+
+
+@app.command("rotate-master-key")
+def rotate_master_key() -> None:
+    """Rotate the local vault master key and re-encrypt stored secrets."""
+    secret_count = _run_service(lambda: LocalSecretVault().rotate_master_key())
+    typer.echo("master_key_rotated: true")
+    typer.echo(f"secret_count: {secret_count}")
 
 
 @app.command("list-positions")

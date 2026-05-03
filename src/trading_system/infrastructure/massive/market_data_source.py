@@ -4,9 +4,9 @@ from collections.abc import Iterable
 from datetime import UTC, date, datetime, time
 from importlib import import_module
 import math
-import os
 from typing import Any
 
+from trading_system.infrastructure.local_secret_vault import require_secret
 from trading_system.ports.market_context import ImportedMarketContext
 
 
@@ -31,9 +31,7 @@ class MassiveDailyOHLCVImportSource:
 
     def load(self) -> ImportedMarketContext:
         """Fetch daily aggregate bars and convert them into a snapshot payload."""
-        api_key = os.environ.get("MASSIVE_API_KEY", "").strip()
-        if not api_key:
-            raise ValueError("MASSIVE_API_KEY is required for Massive.com market data.")
+        api_key = require_secret("MASSIVE_API_KEY")
 
         provider = self._import_provider()
         rest_client = getattr(provider, "RESTClient", None)

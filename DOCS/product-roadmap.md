@@ -20,7 +20,7 @@ The current system remains a local-first, human-in-the-loop trading workflow. It
 
 ## Near-Term Roadmap
 
-The accepted near-term sequence has advanced through Milestone 6.
+The accepted near-term sequence has advanced through Milestone 10.
 
 ### Milestone 3: Manual Workflow Usability
 
@@ -92,14 +92,14 @@ Completed first implementation slice:
 - provider registry boundary and `--provider yfinance`
 - narrow Massive.com daily bars adapter through `--provider massive`
 
-Current sequencing:
+Completed sequencing:
 
 - Milestone 6A: prototype-grade `yfinance` daily OHLCV snapshot fetch is complete.
 - Milestone 6B Issue 1: provider-boundary hardening is complete.
 - Milestone 6C Issue 1: Massive.com provider boundary is accepted in ADR-009.
 - Milestone 6C Issue 2: narrow Massive.com daily bars adapter is complete.
 - Milestone 6D: Milestone 6 closeout is complete.
-- Next accepted direction: begin ADR-008 API-first web product work.
+- ADR-008 API-first web product work continued in completed Milestone 7.
 
 Non-goals:
 
@@ -118,7 +118,7 @@ Milestone 7 delivered the first local web product: Docker Compose runtime, FastA
 
 ### Milestone 8: Options Chain Ingestion
 
-Status: next planned slice.
+Status: complete. See `DOCS/milestone-8-issue-map.md`.
 
 Add options chain data as the first market data depth extension. Options context helps traders assess strike selection, implied volatility regime, and open interest before entering a position.
 
@@ -140,30 +140,31 @@ Non-goals:
 
 ### Milestone 9: Web Product Beyond First Capture
 
-Status: outcome-level. Scope to be defined after Milestone 8.
+Status: complete. See `DOCS/milestone-9-issue-map.md`.
 
 Extend the browser interface beyond the initial trade-capture workflow to support daily use without the CLI.
 
-Candidate direction:
+Completed direction:
 
-- list and detail views for saved ideas, theses, and plans
+- list and detail views for saved plans with linked idea and thesis context
 - plan approval from the browser
-- context attachment from the browser (link a market snapshot to a plan)
-- a dashboard or activity summary for active captures
+- context attachment from the browser by copying an existing market snapshot to a plan
+- metadata-only context discovery in the browser
 
 Non-goals:
 
 - broker integration or execution
 - automated trading or signals
 - multi-user access or authentication
+- rule evaluation before approval
 
 ### Milestone 10: Secure Credentials
 
-Status: outcome-level. Scope to be defined after Milestone 9.
+Status: complete. See `DOCS/milestone-10-issue-map.md`.
 
 Replace plain-text `.env` API key management with an encrypted local key vault for CLI use.
 
-Candidate direction:
+Completed direction:
 
 - ADR for key vault boundary (library-first, provider-agnostic)
 - `local_secret_vault` library using Fernet encryption and OS keychain for master key
@@ -180,7 +181,7 @@ Non-goals:
 
 ### Milestone 11: Broker Boundary and Paper Trading
 
-Status: outcome-level. Scope to be defined after Milestone 10. Requires V7 readiness criteria.
+Status: next planned slice. Scope should be defined as a narrow implementation plan before work starts. Requires V7 readiness criteria.
 
 Introduce the first external execution boundary for paper trading practice.
 
@@ -305,3 +306,6 @@ The current repository should first generate trustworthy ground truth. Learning 
 - [ADR-006: Deferred Learning Systems Boundary](ADR/006-deferred-learning-systems-boundary.md)
 - [ADR-007: Market Data Provider Boundary](ADR/007-market-data-provider-boundary.md)
 - [Milestone 7 Closeout](milestone-7-closeout.md)
+- [Milestone 9 Issue Map](milestone-9-issue-map.md)
+- [ADR-010: Local Secret Vault Boundary](ADR/010-local-secret-vault-boundary.md)
+- [Milestone 10 Issue Map](milestone-10-issue-map.md)
