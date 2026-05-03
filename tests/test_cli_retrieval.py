@@ -206,7 +206,9 @@ def test_show_position_timeline_outputs_lifecycle_events(tmp_path) -> None:
     )
 
     assert result.exit_code == 0
-    assert _lines(result.output)[0] == "OCCURRED_AT | EVENT_TYPE | ENTITY_TYPE | NOTE"
+    assert _lines(result.output)[0] == (
+        "OCCURRED_AT | EVENT_TYPE | ENTITY_TYPE | BROKER_ORDER_ID | NOTE"
+    )
     assert "POSITION_OPENED" in result.output
     assert result.output.index("POSITION_OPENED") < result.output.index(
         "FILL_RECORDED"

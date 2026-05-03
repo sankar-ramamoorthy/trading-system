@@ -4,6 +4,7 @@ from uuid import UUID
 
 from trading_system.domain.rules.rule_evaluation import RuleEvaluation
 from trading_system.domain.rules.violation import Violation
+from trading_system.domain.trading.broker_order import BrokerOrder
 from trading_system.domain.trading.fill import Fill
 from trading_system.domain.trading.idea import TradeIdea
 from trading_system.domain.trading.lifecycle import LifecycleEvent
@@ -113,6 +114,14 @@ class InMemoryFillRepository:
         """Return fills for a position."""
         return [fill for fill in self.items.values() if fill.position_id == position_id]
 
+    def list_by_broker_order_id(self, broker_order_id: UUID) -> list[Fill]:
+        """Return fills linked to a broker order."""
+        return [
+            fill
+            for fill in self.items.values()
+            if fill.broker_order_id == broker_order_id
+        ]
+
 
 class InMemoryOrderIntentRepository:
     """Stores order intents in memory for local workflows."""
@@ -139,6 +148,36 @@ class InMemoryOrderIntentRepository:
             for order_intent in self.items.values()
             if order_intent.trade_plan_id == trade_plan_id
         ]
+
+
+class InMemoryBrokerOrderRepository:
+    """Stores broker orders in memory for local workflows."""
+
+    def __init__(self) -> None:
+        self.items: dict[UUID, BrokerOrder] = {}
+
+    def add(self, broker_order: BrokerOrder) -> None:
+        """Persist a broker order."""
+        self.items[broker_order.id] = broker_order
+
+    def get(self, broker_order_id: UUID) -> BrokerOrder | None:
+        """Return a broker order by identity."""
+        return self.items.get(broker_order_id)
+
+    def update(self, broker_order: BrokerOrder) -> None:
+        """Persist changes to a broker order."""
+        self.items[broker_order.id] = broker_order
+
+    def get_by_order_intent_id(self, order_intent_id: UUID) -> BrokerOrder | None:
+        """Return the broker order for one order intent, if present."""
+        for broker_order in self.items.values():
+            if broker_order.order_intent_id == order_intent_id:
+                return broker_order
+        return None
+
+    def list_all(self) -> list[BrokerOrder]:
+        """Return all broker orders."""
+        return list(self.items.values())
 
 
 class InMemoryLifecycleEventRepository:

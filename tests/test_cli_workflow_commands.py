@@ -481,6 +481,208 @@ def test_cancel_order_intent_command_updates_status(tmp_path) -> None:
     assert "status: canceled" in result.output
 
 
+def test_paper_order_commands_submit_sync_and_show_broker_order(tmp_path) -> None:
+    """Paper broker CLI commands submit, sync, and display local metadata."""
+    store_path = tmp_path / "store.json"
+    plan_id = _seed_approved_and_evaluated_plan(store_path)
+    open_position = runner.invoke(
+        app,
+        ["open-position", plan_id],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+    position_id = _field(open_position.output, "position_id")
+    create_order_intent = runner.invoke(
+        app,
+        [
+            "create-order-intent",
+            "--trade-plan-id",
+            plan_id,
+            "--symbol",
+            "AAPL",
+            "--side",
+            "buy",
+            "--order-type",
+            "limit",
+            "--quantity",
+            "100",
+            "--limit-price",
+            "25.50",
+        ],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+    order_intent_id = _field(create_order_intent.output, "order_intent_id")
+
+    submit = runner.invoke(
+        app,
+        [
+            "submit-paper-order",
+            order_intent_id,
+            "--position-id",
+            position_id,
+            "--provider",
+            "simulated",
+        ],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert submit.exit_code == 0
+    broker_order_id = _field(submit.output, "broker_order_id")
+    assert f"order_intent_id: {order_intent_id}" in submit.output
+    assert f"position_id: {position_id}" in submit.output
+    assert "provider: simulated" in submit.output
+    assert "status: submitted" in submit.output
+
+    sync = runner.invoke(
+        app,
+        [
+            "sync-paper-order",
+            broker_order_id,
+            "--simulated-fill-price",
+            "25.50",
+        ],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert sync.exit_code == 0
+    assert "fill_id:" in sync.output
+    assert f"broker_order_id: {broker_order_id}" in sync.output
+    assert "source: broker:simulated" in sync.output
+    assert "position_state: open" in sync.output
+    assert "open_quantity: 100" in sync.output
+
+    show = runner.invoke(
+        app,
+        ["show-broker-order", broker_order_id],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert show.exit_code == 0
+    assert f"broker_order_id: {broker_order_id}" in show.output
+    assert "provider: simulated" in show.output
+    assert "status: filled" in show.output
+    assert "ALPACA" not in show.output
+
+
+def test_broker_order_list_cancel_and_reject_commands(tmp_path) -> None:
+    """Broker-order CLI commands expose filters and simulated terminal outcomes."""
+    store_path = tmp_path / "store.json"
+    first_plan_id = _seed_approved_and_evaluated_plan(store_path)
+    second_plan_id = _seed_approved_and_evaluated_plan(store_path)
+    first_position_id = _open_position(store_path, first_plan_id)
+    second_position_id = _open_position(store_path, second_plan_id)
+    first_order_intent_id = _create_order_intent(store_path, first_plan_id)
+    second_order_intent_id = _create_order_intent(store_path, second_plan_id)
+    first_broker_order_id = _submit_paper_order(
+        store_path,
+        first_order_intent_id,
+        first_position_id,
+    )
+    second_broker_order_id = _submit_paper_order(
+        store_path,
+        second_order_intent_id,
+        second_position_id,
+    )
+
+    list_all = runner.invoke(
+        app,
+        ["list-broker-orders", "--provider", "simulated"],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert list_all.exit_code == 0
+    assert _lines(list_all.output)[0] == (
+        "BROKER_ORDER_ID | PROVIDER | STATUS | SYMBOL | SIDE | QUANTITY | "
+        "POSITION_ID | ORDER_INTENT_ID | SUBMITTED_AT | UPDATED_AT"
+    )
+    assert first_broker_order_id in list_all.output
+    assert second_broker_order_id in list_all.output
+
+    cancel = runner.invoke(
+        app,
+        ["cancel-paper-order", first_broker_order_id],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert cancel.exit_code == 0
+    assert f"broker_order_id: {first_broker_order_id}" in cancel.output
+    assert "status: canceled" in cancel.output
+
+    reject = runner.invoke(
+        app,
+        [
+            "reject-paper-order",
+            second_broker_order_id,
+            "--reason",
+            "Simulated rejection.",
+        ],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert reject.exit_code == 0
+    assert f"broker_order_id: {second_broker_order_id}" in reject.output
+    assert "status: rejected" in reject.output
+
+    canceled_only = runner.invoke(
+        app,
+        ["list-broker-orders", "--status", "canceled"],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+    assert canceled_only.exit_code == 0
+    assert first_broker_order_id in canceled_only.output
+    assert second_broker_order_id not in canceled_only.output
+
+    sync_canceled = runner.invoke(
+        app,
+        [
+            "sync-paper-order",
+            first_broker_order_id,
+            "--simulated-fill-price",
+            "25.50",
+        ],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert sync_canceled.exit_code != 0
+    assert "cannot be synced" in sync_canceled.output
+
+
+def test_show_broker_order_displays_linked_metadata(tmp_path) -> None:
+    """Broker-order detail output includes linked fill and position metadata."""
+    store_path = tmp_path / "store.json"
+    plan_id = _seed_approved_and_evaluated_plan(store_path)
+    position_id = _open_position(store_path, plan_id)
+    order_intent_id = _create_order_intent(store_path, plan_id)
+    broker_order_id = _submit_paper_order(
+        store_path,
+        order_intent_id,
+        position_id,
+    )
+    sync = runner.invoke(
+        app,
+        [
+            "sync-paper-order",
+            broker_order_id,
+            "--simulated-fill-price",
+            "25.50",
+        ],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+    fill_id = _field(sync.output, "fill_id")
+
+    show = runner.invoke(
+        app,
+        ["show-broker-order", broker_order_id],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert show.exit_code == 0
+    assert "fill_count: 1" in show.output
+    assert f"fill_ids: {fill_id}" in show.output
+    assert "order_intent_status: created" in show.output
+    assert "position_state: open" in show.output
+    assert "open_quantity: 100" in show.output
+
+
 def test_cancel_order_intent_rejects_invalid_uuid(tmp_path) -> None:
     """The cancel command reports invalid UUID arguments clearly."""
     store_path = tmp_path / "store.json"
@@ -531,6 +733,7 @@ def test_validate_store_command_reports_collection_counts(tmp_path) -> None:
     assert result.exit_code == 0
     assert f"store_path: {store_path}" in result.output
     assert "collections: trade_ideas,trade_theses,trade_plans" in result.output
+    assert "broker_orders" in result.output
     assert "total_records: 3" in result.output
     assert "trade_ideas: 1" in result.output
     assert "trade_reviews: 2" in result.output
@@ -711,6 +914,61 @@ def _seed_approved_and_evaluated_plan(store_path) -> str:
         env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
     )
     return plan_id
+
+
+def _open_position(store_path, plan_id: str) -> str:
+    result = runner.invoke(
+        app,
+        ["open-position", plan_id],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+    assert result.exit_code == 0
+    return _field(result.output, "position_id")
+
+
+def _create_order_intent(store_path, plan_id: str) -> str:
+    result = runner.invoke(
+        app,
+        [
+            "create-order-intent",
+            "--trade-plan-id",
+            plan_id,
+            "--symbol",
+            "AAPL",
+            "--side",
+            "buy",
+            "--order-type",
+            "limit",
+            "--quantity",
+            "100",
+            "--limit-price",
+            "25.50",
+        ],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+    assert result.exit_code == 0
+    return _field(result.output, "order_intent_id")
+
+
+def _submit_paper_order(
+    store_path,
+    order_intent_id: str,
+    position_id: str,
+) -> str:
+    result = runner.invoke(
+        app,
+        [
+            "submit-paper-order",
+            order_intent_id,
+            "--position-id",
+            position_id,
+            "--provider",
+            "simulated",
+        ],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+    assert result.exit_code == 0
+    return _field(result.output, "broker_order_id")
 
 
 def _field(output: str, name: str) -> str:

@@ -5,6 +5,7 @@ from uuid import UUID
 
 from trading_system.domain.rules.rule_evaluation import RuleEvaluation
 from trading_system.domain.rules.violation import Violation
+from trading_system.domain.trading.broker_order import BrokerOrder
 from trading_system.domain.trading.fill import Fill
 from trading_system.domain.trading.idea import TradeIdea
 from trading_system.domain.trading.lifecycle import LifecycleEvent
@@ -99,6 +100,10 @@ class FillRepository(Protocol):
         """Return fills for a position."""
         ...
 
+    def list_by_broker_order_id(self, broker_order_id: UUID) -> list[Fill]:
+        """Return fills linked to a broker order."""
+        ...
+
 
 class OrderIntentRepository(Protocol):
     """Persistence boundary for execution intent records."""
@@ -117,6 +122,30 @@ class OrderIntentRepository(Protocol):
 
     def list_by_trade_plan_id(self, trade_plan_id: UUID) -> list[OrderIntent]:
         """Return order intents linked to a trade plan."""
+        ...
+
+
+class BrokerOrderRepository(Protocol):
+    """Persistence boundary for local broker-order records."""
+
+    def add(self, broker_order: BrokerOrder) -> None:
+        """Persist a broker order."""
+        ...
+
+    def get(self, broker_order_id: UUID) -> BrokerOrder | None:
+        """Return a broker order by identity."""
+        ...
+
+    def update(self, broker_order: BrokerOrder) -> None:
+        """Persist changes to a broker order."""
+        ...
+
+    def get_by_order_intent_id(self, order_intent_id: UUID) -> BrokerOrder | None:
+        """Return the broker order for one order intent, if present."""
+        ...
+
+    def list_all(self) -> list[BrokerOrder]:
+        """Return all broker orders."""
         ...
 
 

@@ -13,6 +13,7 @@ from uuid import UUID
 
 from trading_system.domain.rules.rule_evaluation import RuleEvaluation
 from trading_system.domain.rules.violation import Violation
+from trading_system.domain.trading.broker_order import BrokerOrder, BrokerOrderStatus
 from trading_system.domain.trading.fill import Fill
 from trading_system.domain.trading.idea import TradeIdea
 from trading_system.domain.trading.lifecycle import LifecycleEvent
@@ -35,6 +36,7 @@ COLLECTIONS = (
     "trade_plans",
     "positions",
     "order_intents",
+    "broker_orders",
     "fills",
     "trade_reviews",
     "market_context_snapshots",
@@ -301,6 +303,17 @@ class JsonFillRepository:
             if fill.position_id == position_id
         ]
 
+    def list_by_broker_order_id(self, broker_order_id: UUID) -> list[Fill]:
+        """Return fills linked to a broker order."""
+        return [
+            fill
+            for fill in (
+                _fill_from_record(record)
+                for record in self._store.read()["fills"].values()
+            )
+            if fill.broker_order_id == broker_order_id
+        ]
+
 
 class JsonOrderIntentRepository:
     """Stores order intents in a local JSON document."""
@@ -334,6 +347,45 @@ class JsonOrderIntentRepository:
                 for record in self._store.read()["order_intents"].values()
             )
             if order_intent.trade_plan_id == trade_plan_id
+        ]
+
+
+class JsonBrokerOrderRepository:
+    """Stores broker orders in a local JSON document."""
+
+    def __init__(self, store: JsonStore) -> None:
+        self._store = store
+
+    def add(self, broker_order: BrokerOrder) -> None:
+        """Persist a broker order."""
+        self._store.upsert(
+            "broker_orders",
+            broker_order.id,
+            _broker_order_to_record(broker_order),
+        )
+
+    def get(self, broker_order_id: UUID) -> BrokerOrder | None:
+        """Return a broker order by identity."""
+        record = self._store.get("broker_orders", broker_order_id)
+        return None if record is None else _broker_order_from_record(record)
+
+    def update(self, broker_order: BrokerOrder) -> None:
+        """Persist changes to a broker order."""
+        self.add(broker_order)
+
+    def get_by_order_intent_id(self, order_intent_id: UUID) -> BrokerOrder | None:
+        """Return the broker order for one order intent, if present."""
+        for record in self._store.read()["broker_orders"].values():
+            broker_order = _broker_order_from_record(record)
+            if broker_order.order_intent_id == order_intent_id:
+                return broker_order
+        return None
+
+    def list_all(self) -> list[BrokerOrder]:
+        """Return all broker orders."""
+        return [
+            _broker_order_from_record(record)
+            for record in self._store.read()["broker_orders"].values()
         ]
 
 
@@ -529,6 +581,7 @@ class JsonRepositorySet:
     plans: JsonTradePlanRepository
     positions: JsonPositionRepository
     order_intents: JsonOrderIntentRepository
+    broker_orders: JsonBrokerOrderRepository
     fills: JsonFillRepository
     lifecycle_events: JsonLifecycleEventRepository
     reviews: JsonTradeReviewRepository
@@ -548,6 +601,7 @@ def build_json_repositories(path: Path | str) -> JsonRepositorySet:
         plans=JsonTradePlanRepository(store),
         positions=JsonPositionRepository(store),
         order_intents=JsonOrderIntentRepository(store),
+        broker_orders=JsonBrokerOrderRepository(store),
         fills=JsonFillRepository(store),
         lifecycle_events=JsonLifecycleEventRepository(store),
         reviews=JsonTradeReviewRepository(store),
@@ -685,6 +739,7 @@ def _fill_to_record(fill: Fill) -> dict[str, Any]:
         "price": str(fill.price),
         "side": fill.side,
         "order_intent_id": _optional_uuid_to_string(fill.order_intent_id),
+        "broker_order_id": _optional_uuid_to_string(fill.broker_order_id),
         "filled_at": fill.filled_at.isoformat(),
         "notes": fill.notes,
         "source": fill.source,
@@ -699,9 +754,10 @@ def _fill_from_record(record: dict[str, Any]) -> Fill:
         price=Decimal(record["price"]),
         side=record["side"],
         order_intent_id=_optional_uuid(record.get("order_intent_id")),
+        broker_order_id=_optional_uuid(record.get("broker_order_id")),
         filled_at=_datetime(record["filled_at"]),
-        notes=record["notes"],
-        source=record["source"],
+        notes=record.get("notes"),
+        source=record.get("source", "manual"),
     )
 
 
@@ -734,6 +790,44 @@ def _order_intent_from_record(record: dict[str, Any]) -> OrderIntent:
         status=OrderIntentStatus(record["status"]),
         created_at=_datetime(record["created_at"]),
         notes=record["notes"],
+    )
+
+
+def _broker_order_to_record(broker_order: BrokerOrder) -> dict[str, Any]:
+    return {
+        "id": str(broker_order.id),
+        "order_intent_id": str(broker_order.order_intent_id),
+        "position_id": str(broker_order.position_id),
+        "provider": broker_order.provider,
+        "provider_order_id": broker_order.provider_order_id,
+        "symbol": broker_order.symbol,
+        "side": broker_order.side.value,
+        "order_type": broker_order.order_type.value,
+        "quantity": str(broker_order.quantity),
+        "limit_price": _optional_decimal_to_string(broker_order.limit_price),
+        "stop_price": _optional_decimal_to_string(broker_order.stop_price),
+        "status": broker_order.status.value,
+        "submitted_at": broker_order.submitted_at.isoformat(),
+        "updated_at": broker_order.updated_at.isoformat(),
+    }
+
+
+def _broker_order_from_record(record: dict[str, Any]) -> BrokerOrder:
+    return BrokerOrder(
+        id=UUID(record["id"]),
+        order_intent_id=UUID(record["order_intent_id"]),
+        position_id=UUID(record["position_id"]),
+        provider=record["provider"],
+        provider_order_id=record["provider_order_id"],
+        symbol=record["symbol"],
+        side=OrderSide(record["side"]),
+        order_type=OrderType(record["order_type"]),
+        quantity=Decimal(record["quantity"]),
+        limit_price=_optional_decimal(record["limit_price"]),
+        stop_price=_optional_decimal(record["stop_price"]),
+        status=BrokerOrderStatus(record["status"]),
+        submitted_at=_datetime(record["submitted_at"]),
+        updated_at=_datetime(record["updated_at"]),
     )
 
 
