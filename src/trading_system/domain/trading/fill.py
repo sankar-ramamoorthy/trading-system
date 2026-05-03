@@ -15,6 +15,7 @@ class Fill:
     price: Decimal
     side: str
     order_intent_id: UUID | None = None
+    broker_order_id: UUID | None = None
     filled_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     notes: str | None = None
     source: str = "manual"

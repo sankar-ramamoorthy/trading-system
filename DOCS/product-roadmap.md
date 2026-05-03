@@ -20,7 +20,7 @@ The current system remains a local-first, human-in-the-loop trading workflow. It
 
 ## Near-Term Roadmap
 
-The accepted near-term sequence has advanced through Milestone 10.
+The accepted near-term sequence has advanced through Milestone 11. See `DOCS/post-milestone-11-roadmap.md` for the recommended Milestones 12 through 16 sequence.
 
 ### Milestone 3: Manual Workflow Usability
 
@@ -181,22 +181,76 @@ Non-goals:
 
 ### Milestone 11: Broker Boundary and Paper Trading
 
-Status: next planned slice. Scope should be defined as a narrow implementation plan before work starts. Requires V7 readiness criteria.
+Status: complete. See `DOCS/milestone-11-issue-map.md` and `DOCS/ADR/011-broker-execution-boundary.md`.
 
-Introduce the first external execution boundary for paper trading practice.
+Milestone 11 introduced the first broker execution boundary for paper trading practice without live broker calls.
 
-Candidate direction:
+Completed direction:
 
-- ADR for execution boundary (provider-agnostic, Alpaca as first implementation)
-- Alpaca paper trading adapter behind the broker boundary
-- Paper order intent → fill recording through the adapter
-- Position and fill records remain in the local JSON store
+- accepted ADR for the broker execution boundary
+- provider-agnostic broker port
+- simulated paper broker adapter
+- local `BrokerOrder` records and JSON persistence
+- broker-imported fills linked to `OrderIntent`, `BrokerOrder`, and `Position`
+- CLI commands for submit, sync, and show broker order
 
 Non-goals:
 
-- real-money execution (gated by V7 readiness: consistent review data, stable playbook, clean trade records)
+- live Alpaca submission
+- real-money execution
+- FastAPI or React broker controls
 - autonomous or automated trading
-- order management systems
+- recommendations or order-management-system behavior
+
+### Milestone 12: Paper Execution Hardening
+
+Status: complete. See `DOCS/milestone-12-issue-map.md` and `DOCS/post-milestone-11-roadmap.md`.
+
+Harden the simulated paper workflow before adding a real broker adapter.
+
+Candidate direction:
+
+- broker-order list and inspection workflows
+- clearer broker-order links in plan, position, and timeline views
+- audit visibility for submitted, filled, canceled, rejected, and repeated sync cases
+- simulated cancellation or rejection only if needed to test lifecycle behavior
+
+Non-goals:
+
+- Alpaca integration
+- FastAPI or React broker controls
+- real-money execution
+
+### Milestone 13: Alpaca Paper Adapter
+
+Status: future planned slice.
+
+Add Alpaca paper-trading integration behind the accepted broker port after the simulated workflow is hardened.
+
+Candidate direction:
+
+- Alpaca paper adapter behind `BrokerClient`
+- vault-first, environment-fallback credential resolution for `ALPACA_API_KEY` and `ALPACA_SECRET_KEY`
+- submit from existing local `OrderIntent` and open local `Position` records only
+- map Alpaca order and fill facts into local `BrokerOrder` and `Fill` records
+
+Non-goals:
+
+- real-money execution
+- browser execution controls
+- broker positions becoming canonical local positions
+
+### Milestones 14 Through 16: Reconciliation, Visibility, And Browser Controls
+
+Status: future planned direction.
+
+After Alpaca paper integration exists, the recommended sequence is:
+
+- Milestone 14: broker reconciliation and status sync
+- Milestone 15: read-only API/web broker visibility
+- Milestone 16: human-controlled browser paper execution controls
+
+Real-money execution remains a readiness gate, not a normal near-term milestone.
 
 ## Long-Term Product Direction
 
@@ -309,3 +363,7 @@ The current repository should first generate trustworthy ground truth. Learning 
 - [Milestone 9 Issue Map](milestone-9-issue-map.md)
 - [ADR-010: Local Secret Vault Boundary](ADR/010-local-secret-vault-boundary.md)
 - [Milestone 10 Issue Map](milestone-10-issue-map.md)
+- [ADR-011: Broker Execution Boundary](ADR/011-broker-execution-boundary.md)
+- [Milestone 11 Issue Map](milestone-11-issue-map.md)
+- [Milestone 12 Issue Map](milestone-12-issue-map.md)
+- [Post-Milestone 11 Roadmap](post-milestone-11-roadmap.md)

@@ -8,6 +8,7 @@ from uuid import uuid4
 import pytest
 
 from trading_system.domain.rules.rule import Rule
+from trading_system.domain.trading.broker_order import BrokerOrder, BrokerOrderStatus
 from trading_system.domain.trading.fill import Fill
 from trading_system.domain.trading.order_intent import (
     OrderIntent,
@@ -361,6 +362,119 @@ def test_fill_with_order_intent_id_can_round_trip(tmp_path) -> None:
     build_json_repositories(store_path).fills.add(fill)
 
     assert build_json_repositories(store_path).fills.get(fill.id) == fill
+
+
+def test_fill_with_broker_order_id_can_round_trip(tmp_path) -> None:
+    """Fill repository preserves optional broker-order linkage."""
+    store_path = tmp_path / "store.json"
+    fill = Fill(
+        position_id=uuid4(),
+        side="buy",
+        quantity=Decimal("12.5"),
+        price=Decimal("101.25"),
+        order_intent_id=uuid4(),
+        broker_order_id=uuid4(),
+        source="broker:simulated",
+        notes="Broker-linked fill.",
+    )
+    repositories = build_json_repositories(store_path)
+    repositories.fills.add(fill)
+
+    reloaded = build_json_repositories(store_path)
+    assert reloaded.fills.get(fill.id) == fill
+    assert reloaded.fills.list_by_broker_order_id(fill.broker_order_id) == [fill]
+
+
+def test_old_fill_without_broker_order_id_loads_default(tmp_path) -> None:
+    """Older fill records without broker_order_id remain readable."""
+    store_path = tmp_path / "store.json"
+    fill = Fill(
+        position_id=uuid4(),
+        side="buy",
+        quantity=Decimal("12.5"),
+        price=Decimal("101.25"),
+        order_intent_id=uuid4(),
+    )
+    repositories = build_json_repositories(store_path)
+    repositories.fills.add(fill)
+    raw = json.loads(store_path.read_text(encoding="utf-8"))
+    del raw["fills"][str(fill.id)]["broker_order_id"]
+    store_path.write_text(json.dumps(raw), encoding="utf-8")
+
+    persisted = build_json_repositories(store_path).fills.get(fill.id)
+    assert persisted.broker_order_id is None
+
+
+def test_broker_order_can_round_trip_independently(tmp_path) -> None:
+    """Broker order repository preserves provider metadata and status."""
+    store_path = tmp_path / "store.json"
+    broker_order = BrokerOrder(
+        order_intent_id=uuid4(),
+        position_id=uuid4(),
+        provider="simulated",
+        provider_order_id="sim-order-1",
+        symbol="AAPL",
+        side=OrderSide.BUY,
+        order_type=OrderType.LIMIT,
+        quantity=Decimal("12.5"),
+        limit_price=Decimal("101.25"),
+        stop_price=Decimal("99.50"),
+        status=BrokerOrderStatus.SUBMITTED,
+        submitted_at=datetime.fromisoformat("2026-05-03T12:00:00+00:00"),
+        updated_at=datetime.fromisoformat("2026-05-03T12:00:00+00:00"),
+    )
+    repositories = build_json_repositories(store_path)
+    repositories.broker_orders.add(broker_order)
+
+    reloaded = build_json_repositories(store_path)
+    assert reloaded.broker_orders.get(broker_order.id) == broker_order
+    assert (
+        reloaded.broker_orders.get_by_order_intent_id(broker_order.order_intent_id)
+        == broker_order
+    )
+
+
+def test_terminal_broker_order_statuses_can_round_trip(tmp_path) -> None:
+    """Broker order repository preserves canceled and rejected statuses."""
+    store_path = tmp_path / "store.json"
+    canceled = BrokerOrder(
+        order_intent_id=uuid4(),
+        position_id=uuid4(),
+        provider="simulated",
+        provider_order_id="sim-canceled",
+        symbol="AAPL",
+        side=OrderSide.BUY,
+        order_type=OrderType.LIMIT,
+        quantity=Decimal("12.5"),
+        status=BrokerOrderStatus.CANCELED,
+        submitted_at=datetime.fromisoformat("2026-05-03T12:00:00+00:00"),
+        updated_at=datetime.fromisoformat("2026-05-03T12:01:00+00:00"),
+    )
+    rejected = BrokerOrder(
+        order_intent_id=uuid4(),
+        position_id=uuid4(),
+        provider="simulated",
+        provider_order_id="sim-rejected",
+        symbol="MSFT",
+        side=OrderSide.SELL,
+        order_type=OrderType.MARKET,
+        quantity=Decimal("5"),
+        status=BrokerOrderStatus.REJECTED,
+        submitted_at=datetime.fromisoformat("2026-05-03T12:02:00+00:00"),
+        updated_at=datetime.fromisoformat("2026-05-03T12:03:00+00:00"),
+    )
+    repositories = build_json_repositories(store_path)
+    repositories.broker_orders.add(canceled)
+    repositories.broker_orders.add(rejected)
+
+    reloaded = build_json_repositories(store_path)
+
+    assert reloaded.broker_orders.get(canceled.id) == canceled
+    assert reloaded.broker_orders.get(rejected.id) == rejected
+    assert {item.id for item in reloaded.broker_orders.list_all()} == {
+        canceled.id,
+        rejected.id,
+    }
 
 
 def test_json_read_methods_survive_repository_reload(tmp_path) -> None:

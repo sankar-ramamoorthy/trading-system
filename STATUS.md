@@ -2,7 +2,7 @@
 
 ## Current Milestone
 
-Milestones 1 through 10 are complete. Milestone 11 Broker Boundary and Paper Trading is the next planned slice.
+Milestones 1 through 12 are complete. Milestone 12 hardened simulated paper execution through core services and CLI commands only.
 
 ## Implementation State
 
@@ -16,8 +16,10 @@ Milestones 1 through 10 are complete. Milestone 11 Broker Boundary and Paper Tra
 - Milestone 8: complete (options chain ingestion)
 - Milestone 9: complete (web product beyond first capture)
 - Milestone 10: complete (secure credentials)
+- Milestone 11: complete (broker boundary and simulated paper execution)
+- Milestone 12: complete (paper execution hardening)
 
-The system is currently a functional local trading workflow with CLI and web entry points, local JSON persistence, lifecycle tracking, review/export support, local JSON operations, read-only context snapshots, API-first trade capture, options chain ingestion, and browser-based plan inspection, approval, and context attachment.
+The system is currently a functional local trading workflow with CLI and web entry points, local JSON persistence, lifecycle tracking, review/export support, local JSON operations, read-only context snapshots, API-first trade capture, options chain ingestion, browser-based plan inspection, approval, context attachment, and CLI-only simulated paper broker execution.
 
 ## Available Capabilities
 
@@ -57,10 +59,16 @@ The system is currently a functional local trading workflow with CLI and web ent
 - Encrypted local secret vault with OS keychain-backed master key
 - CLI secret commands: `set-secret`, `list-secrets`, `delete-secret`, `rotate-master-key`
 - Vault-first, environment-fallback resolution for Massive.com provider API keys
+- Provider-agnostic broker execution port with simulated paper adapter
+- Local `BrokerOrder` persistence and audit events
+- Broker-imported fills linked to `OrderIntent`, `BrokerOrder`, and `Position`
+- CLI paper execution commands: `submit-paper-order`, `sync-paper-order`, `show-broker-order`
+- Broker-order listing and linked-detail inspection for simulated paper execution
+- Simulated paper-order cancellation and rejection workflows
 
 ## Active Constraints
 
-- No broker integration
+- No live broker integration or real-money execution
 - No automated execution
 - No live market data streaming
 - No AI or ML decision-making
@@ -68,6 +76,7 @@ The system is currently a functional local trading workflow with CLI and web ent
 - Postgres remains deferred as the active backend
 - Domain model is the source of truth for trade meaning
 - External data must remain read-only and non-canonical
+- Broker data is external execution fact; local JSON remains source of truth for internal trade records
 
 ## Completed Slice (Milestone 4)
 

@@ -80,6 +80,9 @@ class FillService:
                     "order_intent_id": None
                     if fill.order_intent_id is None
                     else str(fill.order_intent_id),
+                    "broker_order_id": None
+                    if fill.broker_order_id is None
+                    else str(fill.broker_order_id),
                     "filled_at": fill.filled_at.isoformat(),
                     "source": fill.source,
                 },

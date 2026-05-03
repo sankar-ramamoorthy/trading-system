@@ -14,8 +14,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from trading_system.domain.rules.rule import Rule
+from trading_system.domain.trading.broker_order import BrokerOrder, BrokerOrderStatus
 from trading_system.domain.trading.market_context import MarketContextSnapshot
 from trading_system.domain.trading.order_intent import OrderIntent, OrderSide, OrderType
+from trading_system.infrastructure.broker import SimulatedPaperBrokerClient
 from trading_system.domain.trading.review import TradeReview
 from trading_system.infrastructure.json.repositories import (
     backup_json_store,
@@ -33,6 +35,8 @@ from trading_system.infrastructure.market_data_providers import (
     MarketDataProviderRegistry,
 )
 from trading_system.services.cancel_order_intent_service import CancelOrderIntentService
+from trading_system.services.broker_execution_service import BrokerExecutionService
+from trading_system.services.broker_query_service import BrokerQueryService
 from trading_system.rules_engine.implementations.risk_defined_rule import RiskDefinedRule
 from trading_system.services.create_order_intent_service import CreateOrderIntentService
 from trading_system.services.fill_service import FillService
@@ -501,6 +505,152 @@ def record_fill(
     )
     typer.echo(f"position_state: {position.lifecycle_state}")
     typer.echo(f"open_quantity: {position.current_quantity}")
+
+
+@app.command("submit-paper-order")
+def submit_paper_order(
+    order_intent_id: str = typer.Argument(...),
+    position_id: str = typer.Option(..., "--position-id"),
+    provider: str = typer.Option("simulated", "--provider"),
+) -> None:
+    """Submit an existing order intent to the local paper broker boundary."""
+    repositories = _repositories()
+    broker_order = _run_service(
+        lambda: _broker_execution_service(repositories, provider).submit_paper_order(
+            order_intent_id=_parse_uuid(order_intent_id),
+            position_id=_parse_uuid(position_id),
+            provider=provider,
+        )
+    )
+    _echo_broker_order(broker_order)
+
+
+@app.command("sync-paper-order")
+def sync_paper_order(
+    broker_order_id: str = typer.Argument(...),
+    simulated_fill_price: str = typer.Option(..., "--simulated-fill-price"),
+) -> None:
+    """Sync a local paper broker order using an explicit simulated fill price."""
+    repositories = _repositories()
+    result = _run_service(
+        lambda: _broker_execution_service(repositories).sync_paper_order(
+            broker_order_id=_parse_uuid(broker_order_id),
+            simulated_fill_price=_parse_decimal(simulated_fill_price),
+        )
+    )
+    typer.echo(f"fill_id: {result.fill.id}")
+    typer.echo(f"broker_order_id: {result.broker_order.id}")
+    typer.echo(f"order_intent_id: {result.fill.order_intent_id}")
+    typer.echo(f"position_id: {result.fill.position_id}")
+    typer.echo(f"source: {result.fill.source}")
+    typer.echo(f"position_state: {result.position_state}")
+    typer.echo(f"open_quantity: {result.open_quantity}")
+
+
+@app.command("cancel-paper-order")
+def cancel_paper_order(broker_order_id: str) -> None:
+    """Cancel a submitted simulated paper broker order."""
+    repositories = _repositories()
+    broker_order = _run_service(
+        lambda: _broker_execution_service(repositories).cancel_paper_order(
+            _parse_uuid(broker_order_id)
+        )
+    )
+    typer.echo(f"broker_order_id: {broker_order.id}")
+    typer.echo(f"status: {broker_order.status.value}")
+    typer.echo(f"updated_at: {broker_order.updated_at.isoformat()}")
+
+
+@app.command("reject-paper-order")
+def reject_paper_order(
+    broker_order_id: str,
+    reason: str = typer.Option(..., "--reason"),
+) -> None:
+    """Reject a submitted simulated paper broker order."""
+    repositories = _repositories()
+    broker_order = _run_service(
+        lambda: _broker_execution_service(repositories).reject_paper_order(
+            _parse_uuid(broker_order_id),
+            reason=reason,
+        )
+    )
+    typer.echo(f"broker_order_id: {broker_order.id}")
+    typer.echo(f"status: {broker_order.status.value}")
+    typer.echo(f"updated_at: {broker_order.updated_at.isoformat()}")
+
+
+@app.command("list-broker-orders")
+def list_broker_orders(
+    provider: str | None = typer.Option(None, "--provider"),
+    status: BrokerOrderStatus | None = typer.Option(None, "--status"),
+    position_id: str | None = typer.Option(None, "--position-id"),
+    order_intent_id: str | None = typer.Option(None, "--order-intent-id"),
+    sort: ListSortOrder = typer.Option("oldest", "--sort"),
+) -> None:
+    """List local broker orders with exact filters."""
+    broker_orders = _run_service(
+        lambda: _broker_query_service().list_broker_orders(
+            provider=provider,
+            status=status,
+            position_id=None if position_id is None else _parse_uuid(position_id),
+            order_intent_id=None
+            if order_intent_id is None
+            else _parse_uuid(order_intent_id),
+            sort=sort,
+        )
+    )
+    if not broker_orders:
+        typer.echo("No broker orders found.")
+        return
+    typer.echo(
+        "BROKER_ORDER_ID | PROVIDER | STATUS | SYMBOL | SIDE | QUANTITY | "
+        "POSITION_ID | ORDER_INTENT_ID | SUBMITTED_AT | UPDATED_AT"
+    )
+    for broker_order in broker_orders:
+        typer.echo(
+            " | ".join(
+                [
+                    str(broker_order.id),
+                    broker_order.provider,
+                    broker_order.status.value,
+                    broker_order.symbol,
+                    broker_order.side.value,
+                    str(broker_order.quantity),
+                    str(broker_order.position_id),
+                    str(broker_order.order_intent_id),
+                    broker_order.submitted_at.isoformat(),
+                    broker_order.updated_at.isoformat(),
+                ]
+            )
+        )
+
+
+@app.command("show-broker-order")
+def show_broker_order(broker_order_id: str) -> None:
+    """Show one local broker order without provider secrets."""
+    detail = _run_service(
+        lambda: _broker_query_service().get_broker_order_detail(
+            _parse_uuid(broker_order_id)
+        )
+    )
+    _echo_broker_order(detail.broker_order)
+    typer.echo(f"fill_count: {len(detail.fills)}")
+    typer.echo(
+        "fill_ids: "
+        f"{','.join(str(fill.id) for fill in detail.fills)}"
+    )
+    typer.echo(
+        "order_intent_status: "
+        f"{'N/A' if detail.order_intent is None else detail.order_intent.status.value}"
+    )
+    typer.echo(
+        "position_state: "
+        f"{'N/A' if detail.position is None else detail.position.lifecycle_state}"
+    )
+    typer.echo(
+        "open_quantity: "
+        f"{'N/A' if detail.position is None else detail.position.current_quantity}"
+    )
 
 
 @app.command("create-trade-review")
@@ -1184,6 +1334,7 @@ def show_position(position_id: str) -> None:
             [
                 ("fill_id", fill.id),
                 ("order_intent_id", _format_optional_show_value(fill.order_intent_id)),
+                ("broker_order_id", _format_optional_show_value(fill.broker_order_id)),
                 ("side", fill.side),
                 ("quantity", fill.quantity),
                 ("price", fill.price),
@@ -1217,14 +1368,16 @@ def show_position_timeline(position_id: str) -> None:
         typer.echo("No lifecycle events found.")
         return
 
-    typer.echo("OCCURRED_AT | EVENT_TYPE | ENTITY_TYPE | NOTE")
+    typer.echo("OCCURRED_AT | EVENT_TYPE | ENTITY_TYPE | BROKER_ORDER_ID | NOTE")
     for event in events:
+        broker_order_id = event.details.get("broker_order_id", "")
         typer.echo(
             " | ".join(
                 [
                     event.occurred_at.isoformat(),
                     event.event_type,
                     event.entity_type,
+                    str(broker_order_id),
                     event.note,
                 ]
             )
@@ -1502,6 +1655,17 @@ def _market_context_query_service() -> MarketContextQueryService:
     )
 
 
+def _broker_query_service() -> BrokerQueryService:
+    """Build a broker-order query service from JSON repositories."""
+    repositories = _repositories()
+    return BrokerQueryService(
+        broker_order_repository=repositories.broker_orders,
+        order_intent_repository=repositories.order_intents,
+        position_repository=repositories.positions,
+        fill_repository=repositories.fills,
+    )
+
+
 def _rule_service(repositories: JsonRepositorySet) -> RuleService:
     """Build the deterministic rule service used by CLI workflows."""
     rule = Rule(
@@ -1515,6 +1679,34 @@ def _rule_service(repositories: JsonRepositorySet) -> RuleService:
         violation_repository=repositories.violations,
         rules=[(rule, RiskDefinedRule(rule))],
     )
+
+
+def _broker_execution_service(
+    repositories: JsonRepositorySet,
+    provider: str = "simulated",
+) -> BrokerExecutionService:
+    """Build the paper broker execution service for CLI workflows."""
+    if provider != "simulated":
+        raise ValueError(f"Unsupported paper broker provider: {provider}.")
+    return BrokerExecutionService(
+        order_intent_repository=repositories.order_intents,
+        position_repository=repositories.positions,
+        broker_order_repository=repositories.broker_orders,
+        fill_repository=repositories.fills,
+        lifecycle_event_repository=repositories.lifecycle_events,
+        broker_client=SimulatedPaperBrokerClient(),
+    )
+
+
+def _get_broker_order(
+    repositories: JsonRepositorySet,
+    broker_order_id: UUID,
+) -> BrokerOrder:
+    """Load a broker order for CLI display."""
+    broker_order = repositories.broker_orders.get(broker_order_id)
+    if broker_order is None:
+        raise ValueError("Broker order does not exist.")
+    return broker_order
 
 
 def _fetch_market_data_snapshot(
@@ -1775,6 +1967,24 @@ def _echo_order_intent(order_intent: OrderIntent) -> None:
     typer.echo(f"quantity: {order_intent.quantity}")
     typer.echo(f"limit_price: {_format_optional_decimal(order_intent.limit_price)}")
     typer.echo(f"stop_price: {_format_optional_decimal(order_intent.stop_price)}")
+
+
+def _echo_broker_order(broker_order: BrokerOrder) -> None:
+    """Print broker order metadata without secret-bearing configuration."""
+    typer.echo(f"broker_order_id: {broker_order.id}")
+    typer.echo(f"order_intent_id: {broker_order.order_intent_id}")
+    typer.echo(f"position_id: {broker_order.position_id}")
+    typer.echo(f"provider: {broker_order.provider}")
+    typer.echo(f"provider_order_id: {broker_order.provider_order_id}")
+    typer.echo(f"status: {broker_order.status.value}")
+    typer.echo(f"symbol: {broker_order.symbol}")
+    typer.echo(f"side: {broker_order.side.value}")
+    typer.echo(f"order_type: {broker_order.order_type.value}")
+    typer.echo(f"quantity: {broker_order.quantity}")
+    typer.echo(f"limit_price: {_format_optional_decimal(broker_order.limit_price)}")
+    typer.echo(f"stop_price: {_format_optional_decimal(broker_order.stop_price)}")
+    typer.echo(f"submitted_at: {broker_order.submitted_at.isoformat()}")
+    typer.echo(f"updated_at: {broker_order.updated_at.isoformat()}")
 
 
 def _echo_trade_review(review: TradeReview) -> None:
