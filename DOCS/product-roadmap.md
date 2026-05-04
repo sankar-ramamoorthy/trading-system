@@ -20,7 +20,7 @@ The current system remains a local-first, human-in-the-loop trading workflow. It
 
 ## Near-Term Roadmap
 
-The accepted near-term sequence has advanced through Milestone 11. See `DOCS/post-milestone-11-roadmap.md` for the recommended Milestones 12 through 16 sequence.
+The accepted near-term sequence has advanced through Milestone 15. The next provider-focused milestone is Milestone 16 Finqual Fundamentals Provider. Broker visibility and browser controls are deferred until after those provider gaps are handled.
 
 ### Milestone 3: Manual Workflow Usability
 
@@ -263,14 +263,57 @@ Non-goals:
 - broker positions becoming canonical local positions
 - scheduled sync, polling, streaming, webhooks, or background jobs
 
-### Milestones 15 And 16: Visibility And Browser Controls
+### Milestone 15: Alpaca Read-Only Market Data Provider
+
+Status: complete. See `DOCS/milestone-15-issue-map.md`.
+
+Add Alpaca as a read-only market data provider behind the existing market-context boundary. This milestone uses the already-established Alpaca credentials without crossing into broker execution.
+
+Completed direction:
+
+- `fetch-market-data --provider alpaca` for read-only market data snapshots
+- `fetch-options-chain --provider alpaca` for read-only options chain snapshots
+- vault-first, environment-fallback credential resolution for `ALPACA_API_KEY` and `ALPACA_SECRET_KEY`
+- store output only as `MarketContextSnapshot`
+- keep Alpaca data-provider code separate from Alpaca broker execution code
+
+Non-goals:
+
+- broker submission, sync, reconciliation, or execution controls
+- automatic fallback between yfinance, Massive.com, Alpaca, or other providers
+- live streaming, scheduled refresh, polling, webhooks, or background jobs
+- recommendations, AI interpretation, generated trade meaning, or trade mutation
+- execution-grade quote handling unless accepted through a later ADR
+
+### Milestone 16: Finqual Fundamentals Provider
 
 Status: future planned direction.
 
-After broker reconciliation exists, the recommended sequence is:
+Introduce Finqual as a read-only fundamentals and ownership provider candidate. Finqual output remains advisory external context, not a source of canonical trade meaning.
 
-- Milestone 15: read-only API/web broker visibility
-- Milestone 16: human-controlled browser paper execution controls
+Likely direction:
+
+- add a read-only Finqual provider boundary using a future `FINQUAL_API_KEY` secret name
+- target core financial statements first
+- include insider transactions and 13F snapshots as secondary or later shapes within the same milestone
+- store all output only as `MarketContextSnapshot`
+- keep provider response objects and schemas out of domain logic
+
+Non-goals:
+
+- automatic fallback between yfinance, Massive.com, Alpaca, Finqual, or any other provider
+- automated fundamental scoring, recommendations, AI interpretation, or trade mutation
+- portfolio analytics, ownership ranking, or generated conviction
+- live streaming, scheduled refresh, polling, webhooks, or background jobs
+
+### Milestones 17 And 18: Broker Visibility And Browser Controls
+
+Status: future planned direction.
+
+After the Alpaca and Finqual provider gaps are handled, the recommended broker UI sequence is:
+
+- Milestone 17: read-only API/web broker visibility
+- Milestone 18: human-controlled browser paper execution controls
 
 Real-money execution remains a readiness gate, not a normal near-term milestone.
 
@@ -389,4 +432,5 @@ The current repository should first generate trustworthy ground truth. Learning 
 - [Milestone 11 Issue Map](milestone-11-issue-map.md)
 - [Milestone 12 Issue Map](milestone-12-issue-map.md)
 - [Milestone 13 Issue Map](milestone-13-issue-map.md)
+- [Milestone 15 Issue Map](milestone-15-issue-map.md)
 - [Post-Milestone 11 Roadmap](post-milestone-11-roadmap.md)

@@ -52,3 +52,35 @@ def test_registry_resolves_massive_daily_ohlcv_source() -> None:
         "provider=massive;timespan=day;adjusted=false"
     )
     assert callable(selection.source_adapter.load)
+
+
+def test_registry_resolves_alpaca_daily_ohlcv_source() -> None:
+    """The registry returns Alpaca source metadata for daily OHLCV imports."""
+    selection = MarketDataProviderRegistry().create_daily_ohlcv_source(
+        provider="ALPACA",
+        symbol="aapl",
+        start=date(2026, 4, 1),
+        end=date(2026, 4, 3),
+    )
+
+    assert selection.source == "alpaca"
+    assert selection.source_ref == (
+        "symbol=AAPL;start=2026-04-01;end=2026-04-03;"
+        "provider=alpaca;interval=1d;feed=iex;adjustment=raw"
+    )
+    assert callable(selection.source_adapter.load)
+
+
+def test_registry_resolves_alpaca_options_chain_source() -> None:
+    """The registry returns Alpaca source metadata for options chain imports."""
+    selection = MarketDataProviderRegistry().create_options_chain_source(
+        provider="ALPACA",
+        symbol="aapl",
+        expiration=date(2026, 5, 16),
+    )
+
+    assert selection.source == "alpaca"
+    assert selection.source_ref == (
+        "symbol=AAPL;expiry=2026-05-16;provider=alpaca;feed=indicative"
+    )
+    assert callable(selection.source_adapter.load)

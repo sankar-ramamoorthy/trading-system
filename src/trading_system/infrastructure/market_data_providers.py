@@ -3,6 +3,12 @@
 from dataclasses import dataclass
 from datetime import date
 
+from trading_system.infrastructure.alpaca.market_data_source import (
+    AlpacaDailyOHLCVImportSource,
+)
+from trading_system.infrastructure.alpaca.options_chain_source import (
+    AlpacaOptionsChainImportSource,
+)
 from trading_system.infrastructure.massive.market_data_source import (
     MassiveDailyOHLCVImportSource,
 )
@@ -54,6 +60,13 @@ class MarketDataProviderRegistry:
                 source="massive",
                 source_ref=source_adapter.source_ref,
             )
+        if provider_name == "alpaca":
+            source_adapter = AlpacaDailyOHLCVImportSource(symbol, start, end)
+            return MarketDataImportSourceSelection(
+                source_adapter=source_adapter,
+                source="alpaca",
+                source_ref=source_adapter.source_ref,
+            )
         raise ValueError("Market data provider is not supported.")
 
     def create_options_chain_source(
@@ -77,6 +90,13 @@ class MarketDataProviderRegistry:
             return MarketDataImportSourceSelection(
                 source_adapter=source_adapter,
                 source="massive",
+                source_ref=source_adapter.source_ref,
+            )
+        if provider_name == "alpaca":
+            source_adapter = AlpacaOptionsChainImportSource(symbol, expiration)
+            return MarketDataImportSourceSelection(
+                source_adapter=source_adapter,
+                source="alpaca",
                 source_ref=source_adapter.source_ref,
             )
         raise ValueError("Options chain provider is not supported.")

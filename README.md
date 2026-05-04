@@ -218,6 +218,7 @@ uv run trading-system list-context --context-type price_snapshot --source local-
 uv run trading-system fetch-market-data AAPL --start 2026-04-01 --end 2026-04-30
 uv run trading-system fetch-market-data AAPL --provider yfinance --start 2026-04-01 --end 2026-04-30
 uv run trading-system fetch-market-data AAPL --provider massive --start 2026-04-01 --end 2026-04-30
+uv run trading-system fetch-market-data AAPL --provider alpaca --start 2026-04-01 --end 2026-04-30
 uv run trading-system fetch-market-data AAPL --start 2026-04-01 --end 2026-04-30 --target-type trade-plan --target-id <trade-plan-id>
 uv run trading-system show-context <market-context-snapshot-id>
 ```
@@ -233,6 +234,7 @@ Milestone 8 adds options chain snapshots stored as `context_type: options_chain`
 # Then fetch the chain for a specific expiry
 uv run trading-system fetch-options-chain AAPL --expiry 2026-05-22 --provider yfinance
 uv run trading-system fetch-options-chain AAPL --expiry 2026-05-22 --provider massive
+uv run trading-system fetch-options-chain AAPL --expiry 2026-05-22 --provider alpaca
 
 # Link to a plan for context
 uv run trading-system fetch-options-chain NVDA --expiry 2026-05-22 --provider yfinance --target-type trade-plan --target-id <plan-id>
@@ -242,9 +244,9 @@ uv run trading-system show-context <snapshot-id>
 uv run trading-system list-context --context-type options_chain --source yfinance
 ```
 
-Each contract in the snapshot includes: strike, contract type, bid, ask, last price, volume, open interest, and implied volatility. Massive.com also returns greeks (delta, gamma, theta, vega) where available on paid plans.
+Each contract in the snapshot includes: strike, contract type, bid, ask, last price, volume, open interest, and implied volatility where the provider returns those fields. Massive.com and Alpaca also return greeks (delta, gamma, theta, vega) where available on the selected plan/feed.
 
-ADR-007 and ADR-009 define the Milestone 6 provider boundary. Milestone 6 is complete: `fetch-market-data` stores provider-backed daily OHLCV snapshots as explicit `MarketContextSnapshot` records. `yfinance` remains the default provider; `--provider yfinance` and `--provider massive` are both accepted explicitly. Massive.com fetches require `MASSIVE_API_KEY`. External data remains read-only, advisory, and non-canonical.
+ADR-007 and ADR-009 define the original provider boundary. Milestone 15 adds Alpaca read-only market/options data behind that same boundary. `yfinance` remains the default provider; `--provider yfinance`, `--provider massive`, and `--provider alpaca` are accepted explicitly. Massive.com fetches require `MASSIVE_API_KEY`; Alpaca market data fetches require `ALPACA_API_KEY` and `ALPACA_SECRET_KEY`. External data remains read-only, advisory, and non-canonical.
 
 ## Local Secrets
 
@@ -382,7 +384,7 @@ Backups are exact timestamped JSON copies of the configured store and default to
 - prices and fills are user-entered
 - data persists locally in JSON by default
 - paper broker integration is CLI-only and human-invoked
-- market context exists as explicit read-only local snapshots; `fetch-market-data` supports yfinance and Massive.com daily-OHLCV ingestion paths behind the same boundary
+- market context exists as explicit read-only local snapshots; `fetch-market-data` supports yfinance, Massive.com, and Alpaca daily-OHLCV ingestion paths behind the same boundary
 - the system is currently a discipline and journaling tool
 
 ---

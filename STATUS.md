@@ -2,7 +2,9 @@
 
 ## Current Milestone
 
-Milestones 1 through 14 are complete. Milestone 14 added CLI-only broker reconciliation and status sync after the Alpaca paper adapter.
+Milestones 1 through 15 are complete. Milestone 15 added Alpaca read-only market/options data behind the existing market-context boundary.
+
+Next planned slice: Milestone 16 Finqual Fundamentals Provider. Broker visibility and browser controls move later as Milestones 17 and 18.
 
 ## Implementation State
 
@@ -20,8 +22,9 @@ Milestones 1 through 14 are complete. Milestone 14 added CLI-only broker reconci
 - Milestone 12: complete (paper execution hardening)
 - Milestone 13: complete (Alpaca paper adapter)
 - Milestone 14: complete (broker reconciliation and status sync)
+- Milestone 15: complete (Alpaca read-only market data provider)
 
-The system is currently a functional local trading workflow with CLI and web entry points, local JSON persistence, lifecycle tracking, review/export support, local JSON operations, read-only context snapshots, API-first trade capture, options chain ingestion, browser-based plan inspection, approval, context attachment, CLI-only simulated paper broker execution, CLI-only Alpaca paper trading, and CLI-only broker reconciliation.
+The system is currently a functional local trading workflow with CLI and web entry points, local JSON persistence, lifecycle tracking, review/export support, local JSON operations, read-only context snapshots, API-first trade capture, options chain ingestion, browser-based plan inspection, approval, context attachment, CLI-only simulated paper broker execution, CLI-only Alpaca paper trading, CLI-only broker reconciliation, and Alpaca read-only market/options data ingestion.
 
 ## Available Capabilities
 
@@ -42,8 +45,8 @@ The system is currently a functional local trading workflow with CLI and web ent
 - Market context metadata surfaced alongside trade plan, position, and trade review detail views
 - Broad `list-context` discovery filters for context type, source, observed range, and captured range
 - `copy-context` workflow for copying an existing snapshot to a trade plan, position, or trade review target without mutating the original
-- `fetch-market-data` fetches read-only daily OHLCV snapshots from yfinance or Massive.com
-- `fetch-options-chain` fetches read-only options chain snapshots from yfinance or Massive.com
+- `fetch-market-data` fetches read-only daily OHLCV snapshots from yfinance, Massive.com, or Alpaca
+- `fetch-options-chain` fetches read-only options chain snapshots from yfinance, Massive.com, or Alpaca
 - FastAPI runtime skeleton with `GET /health`
 - Vite React TypeScript frontend shell for the local web product
 - Docker Compose runtime skeleton for backend and frontend containers
@@ -87,6 +90,9 @@ The system is currently a functional local trading workflow with CLI and web ent
 - Domain model is the source of truth for trade meaning
 - External data must remain read-only and non-canonical
 - Broker data is external execution fact; local JSON remains source of truth for internal trade records
+- Alpaca data-provider work must stay separate from Alpaca broker execution
+- Finqual must remain advisory external context, not canonical trade meaning
+- No automatic provider fallback between yfinance, Massive.com, Alpaca, or Finqual
 
 ## Completed Slice (Milestone 4)
 
@@ -395,9 +401,22 @@ Validation recorded on 2026-05-03:
 - `uv run pytest tests\test_alpaca_paper_broker.py tests\test_broker_execution_service.py tests\test_cli_workflow_commands.py`: 44 passed
 - `uv run pytest`: 280 passed
 
+## Completed Slice (Milestone 15)
+
+Milestone 15 is Alpaca Read-Only Market Data Provider.
+
+This slice adds Alpaca daily OHLCV and options-chain adapters behind the existing market data provider registry. `fetch-market-data --provider alpaca` uses Alpaca stock bars with the free-tier IEX feed. `fetch-options-chain --provider alpaca` uses Alpaca option chain snapshots with the free-tier indicative feed. Both paths resolve `ALPACA_API_KEY` and `ALPACA_SECRET_KEY` through the local vault before environment fallback and store output only as `MarketContextSnapshot`.
+
+Milestone 15 intentionally does not add broker submission, broker sync, broker reconciliation, FastAPI or React broker controls, live streaming, scheduled refresh, provider fallback, recommendations, AI interpretation, generated trade meaning, or trade mutation.
+
+Validation recorded on 2026-05-04:
+
+- `uv run pytest tests\test_market_data_provider_registry.py tests\test_cli_market_data_fetch.py tests\test_alpaca_market_data_source.py tests\test_alpaca_options_chain_source.py`: 27 passed
+- `uv run pytest`: 305 passed
+
 ## Next Slice
 
-Milestone 14: Broker Reconciliation And Status Sync. See `DOCS/post-milestone-11-roadmap.md`.
+Milestone 16: Finqual Fundamentals Provider. See `DOCS/product-roadmap.md`.
 
 ## Immediate Design Guardrails
 
@@ -407,6 +426,9 @@ Milestone 14: Broker Reconciliation And Status Sync. See `DOCS/post-milestone-11
 - Keep all context interactions explicit and user-invoked
 - Preserve auditability of retrieved context
 - Keep provider response objects and schemas out of domain logic
+- Store Alpaca and Finqual provider output only as `MarketContextSnapshot`
+- Do not add automatic fallback between providers
+- Do not let read-only provider work add broker submission, sync, reconciliation, or browser controls
 - Keep any future provider data-shape expansion behind a new explicit issue or ADR update
 - Treat `yfinance` as prototype-grade, not production-grade market data infrastructure
 
@@ -434,6 +456,7 @@ Authoritative documents for implementation:
 - `DOCS/milestone-11-issue-map.md`
 - `DOCS/milestone-12-issue-map.md`
 - `DOCS/milestone-13-issue-map.md`
+- `DOCS/milestone-15-issue-map.md`
 
 The domain model remains the canonical source of truth for entities and relationships.
 

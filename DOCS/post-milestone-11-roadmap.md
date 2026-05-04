@@ -7,7 +7,7 @@ tags: [roadmap, broker, paper-trading, trading-system]
 
 # Post-Milestone 11 Roadmap
 
-Milestone 11 closed the first broker execution boundary with simulated paper execution through core services and CLI commands only. This roadmap records the recommended next sequence before expanding broker behavior.
+Milestone 11 closed the first broker execution boundary with simulated paper execution through core services and CLI commands only. Milestones 12 through 14 completed the first paper-trading hardening, Alpaca broker adapter, and broker reconciliation layers. The next accepted sequence handles read-only provider gaps before expanding broker UI.
 
 The guiding rule remains:
 
@@ -63,7 +63,37 @@ Recommended direction:
 
 Broker-reported positions must remain external facts, not canonical local positions.
 
-### Milestone 15: API/Web Broker Visibility
+### Milestone 15: Alpaca Read-Only Market Data Provider
+
+Status: complete. See `DOCS/milestone-15-issue-map.md`.
+
+Add Alpaca as a read-only market and options data provider behind the existing market-context boundary.
+
+Completed direction:
+
+- add `fetch-market-data --provider alpaca`
+- add `fetch-options-chain --provider alpaca`
+- use vault-first, environment-fallback resolution for `ALPACA_API_KEY` and `ALPACA_SECRET_KEY`
+- store output only as `MarketContextSnapshot`
+- keep Alpaca data-provider code separate from Alpaca broker execution code
+
+Do not add broker execution, automatic provider fallback, live streaming, scheduled refresh, recommendations, AI interpretation, or trade mutation.
+
+### Milestone 16: Finqual Fundamentals Provider
+
+Introduce Finqual as a read-only fundamentals and ownership provider candidate.
+
+Recommended direction:
+
+- use future `FINQUAL_API_KEY` secret resolution
+- target core financial statements first
+- include insider transactions and 13F snapshots as secondary or later shapes in the same milestone
+- store all output only as `MarketContextSnapshot`
+- keep Finqual advisory and non-canonical
+
+Do not add automatic provider fallback, automated scoring, recommendations, AI interpretation, portfolio analytics, or trade mutation.
+
+### Milestone 17: API/Web Broker Visibility
 
 Expose broker-order status to the local web product without browser execution controls.
 
@@ -75,7 +105,7 @@ Recommended direction:
 
 This milestone is visibility only. Execution controls remain CLI-only.
 
-### Milestone 16: Browser Paper Execution Controls
+### Milestone 18: Browser Paper Execution Controls
 
 Add human-controlled browser paper execution only after CLI and read-only web visibility are stable.
 
@@ -93,8 +123,10 @@ Browser controls must remain paper-only and human-invoked.
 The following were intentionally deferred by Milestone 11:
 
 - live Alpaca paper submission: Milestone 13
-- FastAPI broker controls: Milestone 15 or later
-- React broker controls: Milestone 16 or later
+- read-only Alpaca market/options data: Milestone 15
+- Finqual fundamentals and ownership context: Milestone 16
+- FastAPI broker visibility: Milestone 17 or later
+- React broker controls: Milestone 18 or later
 - real-money trading: readiness gate, not a normal near-term milestone
 - autonomous trading: out of scope
 - generated recommendations or AI execution instructions: out of scope

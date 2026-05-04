@@ -2,11 +2,11 @@
 
 ## Current Milestone
 
-Milestone 13 is in closeout. Alpaca paper trading is now available behind the existing broker port and CLI paper-order commands.
+Milestones 1 through 15 are complete. Milestone 16 is the next planned slice: Finqual Fundamentals Provider.
 
 ## Current Slice
 
-Milestone 13 added the Alpaca paper adapter through core services and CLI only. The slice keeps browser controls, API broker endpoints, reconciliation, and real-money execution out of scope.
+Milestone 16 should add Finqual as a read-only fundamentals and ownership provider behind the existing `MarketContextSnapshot` boundary. It must not add automatic provider fallback, recommendations, AI interpretation, portfolio analytics, or trade mutation.
 
 ## Constraints
 
@@ -18,15 +18,19 @@ Milestone 13 added the Alpaca paper adapter through core services and CLI only. 
 - Paper execution is CLI-only and requires existing local `OrderIntent` and open `Position` records.
 - No AI or ML decision-making.
 - External provider adapters such as yfinance and Massive.com must stay behind the accepted ADR-007 and ADR-009 boundaries.
+- Alpaca market data provider work must stay separate from Alpaca broker execution.
+- Finqual fundamentals provider work must remain advisory external context, not trade meaning.
 - Market data provider work must stay read-only, local-first, explicit, and auditable unless a later ADR changes the boundary.
+- No automatic fallback between yfinance, Massive.com, Alpaca, Finqual, or other providers.
 - Avoid broad portfolio analytics, optimization systems, cloud operations, generated coaching, or provider-driven trade meaning.
 
 ## Next Steps
 
-- Use `DOCS/post-milestone-11-roadmap.md` as the high-level sequencing guide.
-- Close Milestone 13 after full-suite validation and status updates.
-- Treat future broker work as Milestone 14 reconciliation/status sync, not browser execution controls.
-- Preserve the Milestone 11 boundary: no FastAPI or React broker controls until the CLI paper workflow is proven sufficient.
+- Use `DOCS/product-roadmap.md` as the high-level sequencing guide.
+- Treat Milestone 15 Alpaca read-only market/options data provider work as complete.
+- Treat Milestone 16 as Finqual read-only fundamentals and ownership provider work.
+- Move broker UI expansion later: Milestone 17 read-only API/web broker visibility, then Milestone 18 browser paper execution controls.
+- Preserve the Milestone 11 boundary: no FastAPI or React broker controls until provider gaps are handled and the broker UI milestones are explicitly accepted.
 - Keep `fetch-market-data` scoped to read-only daily OHLCV snapshots unless a new issue explicitly expands provider scope.
 - Preserve the distinction between canonical trade records, read-only market context, and derived read models.
 - Keep provider response objects and schemas out of domain logic.
