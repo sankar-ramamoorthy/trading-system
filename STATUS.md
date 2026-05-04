@@ -2,9 +2,9 @@
 
 ## Current Milestone
 
-Milestones 1 through 15 are complete. Milestone 15 added Alpaca read-only market/options data behind the existing market-context boundary.
+Milestones 1 through 16 are complete. Milestone 16 added Finqual read-only fundamentals and ownership context behind the existing market-context boundary.
 
-Next planned slice: Milestone 16 Finqual Fundamentals Provider. Broker visibility and browser controls move later as Milestones 17 and 18.
+Next planned slice: Milestone 17 read-only API/web broker visibility. Browser paper execution controls remain later as Milestone 18.
 
 ## Implementation State
 
@@ -23,8 +23,9 @@ Next planned slice: Milestone 16 Finqual Fundamentals Provider. Broker visibilit
 - Milestone 13: complete (Alpaca paper adapter)
 - Milestone 14: complete (broker reconciliation and status sync)
 - Milestone 15: complete (Alpaca read-only market data provider)
+- Milestone 16: complete (Finqual fundamentals provider)
 
-The system is currently a functional local trading workflow with CLI and web entry points, local JSON persistence, lifecycle tracking, review/export support, local JSON operations, read-only context snapshots, API-first trade capture, options chain ingestion, browser-based plan inspection, approval, context attachment, CLI-only simulated paper broker execution, CLI-only Alpaca paper trading, CLI-only broker reconciliation, and Alpaca read-only market/options data ingestion.
+The system is currently a functional local trading workflow with CLI and web entry points, local JSON persistence, lifecycle tracking, review/export support, local JSON operations, read-only context snapshots, API-first trade capture, options chain ingestion, browser-based plan inspection, approval, context attachment, CLI-only simulated paper broker execution, CLI-only Alpaca paper trading, CLI-only broker reconciliation, Alpaca read-only market/options data ingestion, and Finqual read-only fundamentals/ownership ingestion.
 
 ## Available Capabilities
 
@@ -47,6 +48,9 @@ The system is currently a functional local trading workflow with CLI and web ent
 - `copy-context` workflow for copying an existing snapshot to a trade plan, position, or trade review target without mutating the original
 - `fetch-market-data` fetches read-only daily OHLCV snapshots from yfinance, Massive.com, or Alpaca
 - `fetch-options-chain` fetches read-only options chain snapshots from yfinance, Massive.com, or Alpaca
+- `fetch-financial-statement` fetches read-only Finqual income statement, balance sheet, or cash-flow snapshots
+- `fetch-insider-transactions` fetches read-only Finqual insider transaction snapshots
+- `fetch-13f` fetches read-only Finqual 13F holdings snapshots
 - FastAPI runtime skeleton with `GET /health`
 - Vite React TypeScript frontend shell for the local web product
 - Docker Compose runtime skeleton for backend and frontend containers
@@ -72,6 +76,7 @@ The system is currently a functional local trading workflow with CLI and web ent
 - Simulated paper-order cancellation and rejection workflows
 - Alpaca paper broker adapter behind the existing `BrokerClient` port
 - Vault-first, environment-fallback resolution for `ALPACA_API_KEY` and `ALPACA_SECRET_KEY`
+- Vault-first, environment-fallback resolution for `FINQUAL_API_KEY`
 - CLI Alpaca paper submission through `submit-paper-order --provider alpaca`
 - CLI Alpaca paper sync through `sync-paper-order` without simulated fill prices
 - Alpaca broker order snapshot listing behind the broker port
@@ -414,9 +419,22 @@ Validation recorded on 2026-05-04:
 - `uv run pytest tests\test_market_data_provider_registry.py tests\test_cli_market_data_fetch.py tests\test_alpaca_market_data_source.py tests\test_alpaca_options_chain_source.py`: 27 passed
 - `uv run pytest`: 305 passed
 
+## Completed Slice (Milestone 16)
+
+Milestone 16 is Finqual Fundamentals Provider.
+
+This slice adds Finqual financial statement, insider transaction, and 13F holdings adapters behind the existing market context boundary. `fetch-financial-statement --provider finqual` supports income statement, balance sheet, and cash-flow snapshots. `fetch-insider-transactions --provider finqual` stores recent insider transaction context. `fetch-13f --provider finqual` stores CIK-based 13F holdings context when an explicit local instrument or context target is supplied. All paths resolve `FINQUAL_API_KEY` through the local vault before environment fallback and store output only as `MarketContextSnapshot`.
+
+Milestone 16 intentionally does not add automatic provider fallback, scheduled refresh, streaming, portfolio analytics, automated scoring, recommendations, AI interpretation, generated trade meaning, or trade mutation.
+
+Validation recorded on 2026-05-04:
+
+- `uv run pytest tests\test_finqual_context_sources.py tests\test_finqual_provider_registry.py tests\test_cli_finqual_fetch.py`: 18 passed
+- `uv run pytest`: 323 passed
+
 ## Next Slice
 
-Milestone 16: Finqual Fundamentals Provider. See `DOCS/product-roadmap.md`.
+Milestone 17: read-only API/web broker visibility. See `DOCS/product-roadmap.md`.
 
 ## Immediate Design Guardrails
 
@@ -457,6 +475,7 @@ Authoritative documents for implementation:
 - `DOCS/milestone-12-issue-map.md`
 - `DOCS/milestone-13-issue-map.md`
 - `DOCS/milestone-15-issue-map.md`
+- `DOCS/milestone-16-issue-map.md`
 
 The domain model remains the canonical source of truth for entities and relationships.
 

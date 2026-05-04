@@ -34,6 +34,7 @@ from trading_system.infrastructure.json.market_context_source import (
     JsonMarketContextImportSource,
 )
 from trading_system.infrastructure.local_secret_vault import LocalSecretVault
+from trading_system.infrastructure.finqual_providers import FinqualProviderRegistry
 from trading_system.infrastructure.market_data_providers import (
     MarketDataProviderRegistry,
 )
@@ -66,6 +67,7 @@ from trading_system.services.reference_lookup_service import ReferenceLookupServ
 app = typer.Typer(help="Structured discretionary trading system.")
 ListSortOrder = Literal["oldest", "newest"]
 ContextTargetOption = Literal["trade-plan", "position", "trade-review"]
+FinqualStatementOption = Literal["income-statement", "balance-sheet", "cash-flow"]
 
 
 @app.command()
@@ -1562,6 +1564,98 @@ def fetch_options_chain(
     _echo_context_snapshot_result(snapshot)
 
 
+@app.command("fetch-financial-statement")
+def fetch_financial_statement(
+    symbol: str = typer.Argument(...),
+    statement: FinqualStatementOption = typer.Option(..., "--statement"),
+    start: int = typer.Option(..., "--start"),
+    end: int = typer.Option(..., "--end"),
+    quarter: bool = typer.Option(False, "--quarter"),
+    provider: str = typer.Option("finqual", "--provider"),
+    instrument_id: str | None = typer.Option(None, "--instrument-id"),
+    target_type: ContextTargetOption | None = typer.Option(None, "--target-type"),
+    target_id: str | None = typer.Option(None, "--target-id"),
+) -> None:
+    """Fetch a read-only Finqual financial statement snapshot."""
+    repositories = _repositories()
+    resolved_instrument_id = _resolve_context_instrument_id(
+        symbol=symbol,
+        instrument_id=instrument_id,
+        target_type=target_type,
+    )
+    snapshot = _run_service(
+        lambda: _fetch_finqual_financial_statement_snapshot(
+            repositories=repositories,
+            provider=provider,
+            symbol=symbol,
+            statement=statement,
+            start=start,
+            end=end,
+            quarter=quarter,
+            instrument_id=resolved_instrument_id,
+            target_type=None if target_type is None else _context_target_type(target_type),
+            target_id=None if target_id is None else _parse_uuid(target_id),
+        )
+    )
+    _echo_context_snapshot_result(snapshot)
+
+
+@app.command("fetch-insider-transactions")
+def fetch_insider_transactions(
+    symbol: str = typer.Argument(...),
+    period: str = typer.Option(..., "--period"),
+    provider: str = typer.Option("finqual", "--provider"),
+    instrument_id: str | None = typer.Option(None, "--instrument-id"),
+    target_type: ContextTargetOption | None = typer.Option(None, "--target-type"),
+    target_id: str | None = typer.Option(None, "--target-id"),
+) -> None:
+    """Fetch a read-only Finqual insider transactions snapshot."""
+    repositories = _repositories()
+    resolved_instrument_id = _resolve_context_instrument_id(
+        symbol=symbol,
+        instrument_id=instrument_id,
+        target_type=target_type,
+    )
+    snapshot = _run_service(
+        lambda: _fetch_finqual_insider_transactions_snapshot(
+            repositories=repositories,
+            provider=provider,
+            symbol=symbol,
+            period=period,
+            instrument_id=resolved_instrument_id,
+            target_type=None if target_type is None else _context_target_type(target_type),
+            target_id=None if target_id is None else _parse_uuid(target_id),
+        )
+    )
+    _echo_context_snapshot_result(snapshot)
+
+
+@app.command("fetch-13f")
+def fetch_13f(
+    cik: str = typer.Argument(...),
+    period: int = typer.Option(..., "--period"),
+    provider: str = typer.Option("finqual", "--provider"),
+    instrument_id: str | None = typer.Option(None, "--instrument-id"),
+    target_type: ContextTargetOption | None = typer.Option(None, "--target-type"),
+    target_id: str | None = typer.Option(None, "--target-id"),
+) -> None:
+    """Fetch a read-only Finqual 13F holdings snapshot."""
+    repositories = _repositories()
+    resolved_instrument_id = None if instrument_id is None else _parse_uuid(instrument_id)
+    snapshot = _run_service(
+        lambda: _fetch_finqual_13f_snapshot(
+            repositories=repositories,
+            provider=provider,
+            cik=cik,
+            period=period,
+            instrument_id=resolved_instrument_id,
+            target_type=None if target_type is None else _context_target_type(target_type),
+            target_id=None if target_id is None else _parse_uuid(target_id),
+        )
+    )
+    _echo_context_snapshot_result(snapshot)
+
+
 @app.command("copy-context")
 def copy_context(
     snapshot_id: str,
@@ -1833,6 +1927,126 @@ def _fetch_market_data_snapshot(
         target_type=target_type,
         target_id=target_id,
     )
+
+
+def _fetch_finqual_financial_statement_snapshot(
+    *,
+    repositories: JsonRepositorySet,
+    provider: str,
+    symbol: str,
+    statement: str,
+    start: int,
+    end: int,
+    quarter: bool,
+    instrument_id: UUID | None,
+    target_type: str | None,
+    target_id: UUID | None,
+) -> MarketContextSnapshot:
+    """Fetch a Finqual financial statement and store it as context."""
+    selection = FinqualProviderRegistry().create_financial_statement_source(
+        provider=provider,
+        symbol=symbol,
+        statement=statement,
+        start=start,
+        end=end,
+        quarter=quarter,
+    )
+    return _import_selected_context_snapshot(
+        repositories=repositories,
+        selection=selection,
+        instrument_id=instrument_id,
+        target_type=target_type,
+        target_id=target_id,
+    )
+
+
+def _fetch_finqual_insider_transactions_snapshot(
+    *,
+    repositories: JsonRepositorySet,
+    provider: str,
+    symbol: str,
+    period: str,
+    instrument_id: UUID | None,
+    target_type: str | None,
+    target_id: UUID | None,
+) -> MarketContextSnapshot:
+    """Fetch Finqual insider transactions and store them as context."""
+    selection = FinqualProviderRegistry().create_insider_transactions_source(
+        provider=provider,
+        symbol=symbol,
+        period=period,
+    )
+    return _import_selected_context_snapshot(
+        repositories=repositories,
+        selection=selection,
+        instrument_id=instrument_id,
+        target_type=target_type,
+        target_id=target_id,
+    )
+
+
+def _fetch_finqual_13f_snapshot(
+    *,
+    repositories: JsonRepositorySet,
+    provider: str,
+    cik: str,
+    period: int,
+    instrument_id: UUID | None,
+    target_type: str | None,
+    target_id: UUID | None,
+) -> MarketContextSnapshot:
+    """Fetch Finqual 13F holdings and store them as context."""
+    selection = FinqualProviderRegistry().create_13f_source(
+        provider=provider,
+        cik=cik,
+        period=period,
+    )
+    return _import_selected_context_snapshot(
+        repositories=repositories,
+        selection=selection,
+        instrument_id=instrument_id,
+        target_type=target_type,
+        target_id=target_id,
+    )
+
+
+def _import_selected_context_snapshot(
+    *,
+    repositories: JsonRepositorySet,
+    selection,
+    instrument_id: UUID | None,
+    target_type: str | None,
+    target_id: UUID | None,
+) -> MarketContextSnapshot:
+    """Store one provider-backed context selection as a read-only snapshot."""
+    return MarketContextImportService(
+        snapshot_repository=repositories.market_context_snapshots,
+        plan_repository=repositories.plans,
+        position_repository=repositories.positions,
+        review_repository=repositories.reviews,
+        idea_repository=repositories.ideas,
+    ).import_context(
+        selection.source_adapter,
+        source=selection.source,
+        source_ref=selection.source_ref,
+        instrument_id=instrument_id,
+        target_type=target_type,
+        target_id=target_id,
+    )
+
+
+def _resolve_context_instrument_id(
+    *,
+    symbol: str,
+    instrument_id: str | None,
+    target_type: ContextTargetOption | None,
+) -> UUID | None:
+    """Resolve ticker context to an instrument unless a target will resolve it."""
+    if instrument_id is not None:
+        return _parse_uuid(instrument_id)
+    if target_type is None:
+        return _resolve_instrument_id(symbol)
+    return None
 
 
 def _resolve_instrument_id(symbol: str) -> UUID:

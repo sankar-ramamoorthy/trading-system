@@ -2,11 +2,11 @@
 
 ## Current Milestone
 
-Milestones 1 through 15 are complete. Milestone 16 is the next planned slice: Finqual Fundamentals Provider.
+Milestones 1 through 16 are complete. Milestone 17 is the next planned slice: read-only API/web broker visibility.
 
 ## Current Slice
 
-Milestone 16 should add Finqual as a read-only fundamentals and ownership provider behind the existing `MarketContextSnapshot` boundary. It must not add automatic provider fallback, recommendations, AI interpretation, portfolio analytics, or trade mutation.
+Milestone 16 added Finqual as a read-only fundamentals and ownership provider behind the existing `MarketContextSnapshot` boundary. The next slice should expose read-only broker visibility without adding browser execution controls.
 
 ## Constraints
 
@@ -28,8 +28,8 @@ Milestone 16 should add Finqual as a read-only fundamentals and ownership provid
 
 - Use `DOCS/product-roadmap.md` as the high-level sequencing guide.
 - Treat Milestone 15 Alpaca read-only market/options data provider work as complete.
-- Treat Milestone 16 as Finqual read-only fundamentals and ownership provider work.
-- Move broker UI expansion later: Milestone 17 read-only API/web broker visibility, then Milestone 18 browser paper execution controls.
+- Treat Milestone 16 Finqual read-only fundamentals and ownership provider work as complete.
+- Treat Milestone 17 as read-only API/web broker visibility, then Milestone 18 browser paper execution controls.
 - Preserve the Milestone 11 boundary: no FastAPI or React broker controls until provider gaps are handled and the broker UI milestones are explicitly accepted.
 - Keep `fetch-market-data` scoped to read-only daily OHLCV snapshots unless a new issue explicitly expands provider scope.
 - Preserve the distinction between canonical trade records, read-only market context, and derived read models.
