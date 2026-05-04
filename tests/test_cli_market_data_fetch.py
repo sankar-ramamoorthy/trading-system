@@ -259,6 +259,164 @@ def test_fetch_market_data_massive_requires_api_key(tmp_path, monkeypatch) -> No
     assert "No market context snapshots found." in listed.output
 
 
+def test_fetch_market_data_accepts_alpaca_provider(tmp_path, monkeypatch) -> None:
+    """The CLI can select Alpaca and store read-only daily snapshots."""
+    store_path = tmp_path / "store.json"
+    instrument_id = uuid4()
+    monkeypatch.setattr(
+        "trading_system.infrastructure.alpaca.market_data_source."
+        "AlpacaDailyOHLCVImportSource._stock_client",
+        lambda self: _AlpacaStockClient(
+            {
+                "AAPL": [
+                    SimpleNamespace(
+                        timestamp=datetime(2026, 4, 1),
+                        open=1,
+                        high=2,
+                        low=1,
+                        close=2,
+                        volume=100,
+                    )
+                ]
+            }
+        ),
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "fetch-market-data",
+            "aapl",
+            "--provider",
+            "alpaca",
+            "--start",
+            "2026-04-01",
+            "--end",
+            "2026-04-03",
+            "--instrument-id",
+            str(instrument_id),
+        ],
+        env={
+            "TRADING_SYSTEM_STORE_PATH": str(store_path),
+            "ALPACA_API_KEY": "test-key",
+            "ALPACA_SECRET_KEY": "test-secret",
+        },
+    )
+
+    assert result.exit_code == 0
+    snapshot_id = _lines(result.output)[0].split(": ")[1]
+    assert "context_type: daily_ohlcv" in result.output
+    assert "source: alpaca" in result.output
+    assert "instrument_id: " + str(instrument_id) in result.output
+
+    shown = runner.invoke(
+        app,
+        ["show-context", snapshot_id],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert shown.exit_code == 0
+    assert '"provider": "alpaca"' in shown.output
+    assert '"feed": "iex"' in shown.output
+
+
+def test_fetch_market_data_alpaca_requires_api_key(tmp_path, monkeypatch) -> None:
+    """Missing Alpaca credentials fail before a snapshot is stored."""
+    import trading_system.infrastructure.local_secret_vault as secret_vault
+
+    store_path = tmp_path / "store.json"
+    monkeypatch.setattr(secret_vault, "DEFAULT_VAULT_PATH", tmp_path / "keys.enc")
+    monkeypatch.delenv("ALPACA_API_KEY", raising=False)
+    monkeypatch.delenv("ALPACA_SECRET_KEY", raising=False)
+
+    result = runner.invoke(
+        app,
+        [
+            "fetch-market-data",
+            "AAPL",
+            "--provider",
+            "alpaca",
+            "--start",
+            "2026-04-01",
+            "--end",
+            "2026-04-03",
+            "--instrument-id",
+            str(uuid4()),
+        ],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert result.exit_code != 0
+    assert "ALPACA_API_KEY is required" in result.output
+
+    listed = runner.invoke(
+        app,
+        ["list-context"],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert listed.exit_code == 0
+    assert "No market context snapshots found." in listed.output
+
+
+def test_fetch_options_chain_accepts_alpaca_provider(tmp_path, monkeypatch) -> None:
+    """The CLI can select Alpaca and store read-only options chain snapshots."""
+    store_path = tmp_path / "store.json"
+    instrument_id = uuid4()
+    monkeypatch.setattr(
+        "trading_system.infrastructure.alpaca.options_chain_source."
+        "AlpacaOptionsChainImportSource._option_client",
+        lambda self: _AlpacaOptionClient(
+            {
+                "AAPL260516C00185000": SimpleNamespace(
+                    latest_quote=SimpleNamespace(bid_price=2.4, ask_price=2.6),
+                    latest_trade=SimpleNamespace(price=2.5),
+                    daily_bar=SimpleNamespace(volume=100),
+                    open_interest=500,
+                    implied_volatility=0.25,
+                    greeks=SimpleNamespace(delta=0.5, gamma=None, theta=None, vega=None),
+                )
+            }
+        ),
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "fetch-options-chain",
+            "aapl",
+            "--provider",
+            "alpaca",
+            "--expiry",
+            "2026-05-16",
+            "--instrument-id",
+            str(instrument_id),
+        ],
+        env={
+            "TRADING_SYSTEM_STORE_PATH": str(store_path),
+            "ALPACA_API_KEY": "test-key",
+            "ALPACA_SECRET_KEY": "test-secret",
+        },
+    )
+
+    assert result.exit_code == 0
+    snapshot_id = _lines(result.output)[0].split(": ")[1]
+    assert "context_type: options_chain" in result.output
+    assert "source: alpaca" in result.output
+    assert "instrument_id: " + str(instrument_id) in result.output
+
+    shown = runner.invoke(
+        app,
+        ["show-context", snapshot_id],
+        env={"TRADING_SYSTEM_STORE_PATH": str(store_path)},
+    )
+
+    assert shown.exit_code == 0
+    assert '"provider": "alpaca"' in shown.output
+    assert '"feed": "indicative"' in shown.output
+    assert '"contract_symbol": "AAPL260516C00185000"' in shown.output
+
+
 def test_fetch_market_data_unknown_symbol_fails(tmp_path, monkeypatch) -> None:
     """An unknown ticker symbol produces a clear error and no stored snapshot."""
     store_path = tmp_path / "store.json"
@@ -334,3 +492,19 @@ class _MassiveClient:
 
     def list_aggs(self, **kwargs):
         return self._bars
+
+
+class _AlpacaStockClient:
+    def __init__(self, data):
+        self._data = data
+
+    def get_stock_bars(self, request):
+        return SimpleNamespace(data=self._data)
+
+
+class _AlpacaOptionClient:
+    def __init__(self, data):
+        self._data = data
+
+    def get_option_chain(self, request):
+        return self._data
