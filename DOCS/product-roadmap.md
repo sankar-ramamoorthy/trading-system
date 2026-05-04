@@ -20,7 +20,7 @@ The current system remains a local-first, human-in-the-loop trading workflow. It
 
 ## Near-Term Roadmap
 
-The accepted near-term sequence has advanced through Milestone 15. The next provider-focused milestone is Milestone 16 Finqual Fundamentals Provider. Broker visibility and browser controls are deferred until after those provider gaps are handled.
+The accepted near-term sequence has advanced through Milestone 16. The next milestone is Milestone 17 read-only API/web broker visibility. Browser controls remain deferred until Milestone 18.
 
 ### Milestone 3: Manual Workflow Usability
 
@@ -287,15 +287,16 @@ Non-goals:
 
 ### Milestone 16: Finqual Fundamentals Provider
 
-Status: future planned direction.
+Status: complete. See `DOCS/milestone-16-issue-map.md`.
 
 Introduce Finqual as a read-only fundamentals and ownership provider candidate. Finqual output remains advisory external context, not a source of canonical trade meaning.
 
-Likely direction:
+Completed direction:
 
-- add a read-only Finqual provider boundary using a future `FINQUAL_API_KEY` secret name
-- target core financial statements first
-- include insider transactions and 13F snapshots as secondary or later shapes within the same milestone
+- add a read-only Finqual provider boundary using `FINQUAL_API_KEY`
+- `fetch-financial-statement --provider finqual` for income statement, balance sheet, and cash-flow snapshots
+- `fetch-insider-transactions --provider finqual` for recent insider transaction snapshots
+- `fetch-13f --provider finqual` for CIK-based 13F holdings snapshots
 - store all output only as `MarketContextSnapshot`
 - keep provider response objects and schemas out of domain logic
 
@@ -310,7 +311,7 @@ Non-goals:
 
 Status: future planned direction.
 
-After the Alpaca and Finqual provider gaps are handled, the recommended broker UI sequence is:
+After the Alpaca and Finqual provider gaps were handled, the recommended broker UI sequence is:
 
 - Milestone 17: read-only API/web broker visibility
 - Milestone 18: human-controlled browser paper execution controls
@@ -433,4 +434,5 @@ The current repository should first generate trustworthy ground truth. Learning 
 - [Milestone 12 Issue Map](milestone-12-issue-map.md)
 - [Milestone 13 Issue Map](milestone-13-issue-map.md)
 - [Milestone 15 Issue Map](milestone-15-issue-map.md)
+- [Milestone 16 Issue Map](milestone-16-issue-map.md)
 - [Post-Milestone 11 Roadmap](post-milestone-11-roadmap.md)

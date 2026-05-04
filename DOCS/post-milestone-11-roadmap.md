@@ -7,7 +7,7 @@ tags: [roadmap, broker, paper-trading, trading-system]
 
 # Post-Milestone 11 Roadmap
 
-Milestone 11 closed the first broker execution boundary with simulated paper execution through core services and CLI commands only. Milestones 12 through 14 completed the first paper-trading hardening, Alpaca broker adapter, and broker reconciliation layers. The next accepted sequence handles read-only provider gaps before expanding broker UI.
+Milestone 11 closed the first broker execution boundary with simulated paper execution through core services and CLI commands only. Milestones 12 through 16 completed the first paper-trading hardening, Alpaca broker adapter, broker reconciliation, Alpaca market data, and Finqual fundamentals layers. The next accepted sequence expands broker visibility before browser execution controls.
 
 The guiding rule remains:
 
@@ -81,13 +81,16 @@ Do not add broker execution, automatic provider fallback, live streaming, schedu
 
 ### Milestone 16: Finqual Fundamentals Provider
 
+Status: complete. See `DOCS/milestone-16-issue-map.md`.
+
 Introduce Finqual as a read-only fundamentals and ownership provider candidate.
 
-Recommended direction:
+Completed direction:
 
-- use future `FINQUAL_API_KEY` secret resolution
-- target core financial statements first
-- include insider transactions and 13F snapshots as secondary or later shapes in the same milestone
+- use vault-first, environment-fallback resolution for `FINQUAL_API_KEY`
+- add `fetch-financial-statement --provider finqual`
+- add `fetch-insider-transactions --provider finqual`
+- add `fetch-13f --provider finqual`
 - store all output only as `MarketContextSnapshot`
 - keep Finqual advisory and non-canonical
 

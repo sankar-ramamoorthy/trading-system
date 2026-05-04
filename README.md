@@ -248,6 +248,20 @@ Each contract in the snapshot includes: strike, contract type, bid, ask, last pr
 
 ADR-007 and ADR-009 define the original provider boundary. Milestone 15 adds Alpaca read-only market/options data behind that same boundary. `yfinance` remains the default provider; `--provider yfinance`, `--provider massive`, and `--provider alpaca` are accepted explicitly. Massive.com fetches require `MASSIVE_API_KEY`; Alpaca market data fetches require `ALPACA_API_KEY` and `ALPACA_SECRET_KEY`. External data remains read-only, advisory, and non-canonical.
 
+### Finqual Fundamentals Data
+
+Milestone 16 adds Finqual fundamentals and ownership snapshots stored as read-only market context:
+
+```powershell
+uv run trading-system fetch-financial-statement AAPL --statement income-statement --start 2024 --end 2025
+uv run trading-system fetch-financial-statement AAPL --statement balance-sheet --start 2024 --end 2025 --quarter
+uv run trading-system fetch-financial-statement AAPL --statement cash-flow --start 2024 --end 2025 --target-type trade-plan --target-id <plan-id>
+uv run trading-system fetch-insider-transactions NVDA --period 1m
+uv run trading-system fetch-13f 0001067983 --period 1 --instrument-id <instrument-id>
+```
+
+Finqual fetches require `FINQUAL_API_KEY`. Statements are stored as `context_type: financial_statement`; insider transactions as `context_type: insider_transactions`; and 13F holdings as `context_type: institutional_holdings_13f`. 13F fetches are CIK-based, so use `--instrument-id` or a linked target.
+
 ## Local Secrets
 
 Milestone 10 adds a local encrypted secret vault for CLI API keys. The vault stores encrypted secret values in `.trading-system/keys.enc` and keeps the master key in the operating system keychain.
@@ -256,6 +270,7 @@ Milestone 10 adds a local encrypted secret vault for CLI API keys. The vault sto
 uv run trading-system set-secret MASSIVE_API_KEY
 uv run trading-system set-secret ALPACA_API_KEY
 uv run trading-system set-secret ALPACA_SECRET_KEY
+uv run trading-system set-secret FINQUAL_API_KEY
 uv run trading-system list-secrets
 uv run trading-system delete-secret MASSIVE_API_KEY
 uv run trading-system rotate-master-key
@@ -384,7 +399,7 @@ Backups are exact timestamped JSON copies of the configured store and default to
 - prices and fills are user-entered
 - data persists locally in JSON by default
 - paper broker integration is CLI-only and human-invoked
-- market context exists as explicit read-only local snapshots; `fetch-market-data` supports yfinance, Massive.com, and Alpaca daily-OHLCV ingestion paths behind the same boundary
+- market context exists as explicit read-only local snapshots; provider fetches support yfinance, Massive.com, Alpaca, and Finqual ingestion paths behind the same boundary
 - the system is currently a discipline and journaling tool
 
 ---
